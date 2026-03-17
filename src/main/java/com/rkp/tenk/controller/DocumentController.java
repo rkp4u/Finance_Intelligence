@@ -41,9 +41,9 @@ public class DocumentController {
         KnowledgeBase kb = knowledgeBaseService.findOrThrow(kbId);
         DocumentRecord record = ingestionService.initiateIngestion(file, kb);
 
-        // Start async processing with the file bytes
+        // Start async processing — pass kbId explicitly to avoid lazy loading in async thread
         byte[] fileBytes = file.getBytes();
-        ingestionService.processDocumentAsync(record.getId(), fileBytes, file.getOriginalFilename());
+        ingestionService.processDocumentAsync(record.getId(), kbId, fileBytes, file.getOriginalFilename());
 
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(toResponse(record));
     }

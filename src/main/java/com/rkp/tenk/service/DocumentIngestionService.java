@@ -58,9 +58,12 @@ public class DocumentIngestionService {
 
     /**
      * Process the document asynchronously: extract text, chunk, embed, and store.
+     * The knowledgeBaseId is passed explicitly to avoid lazy loading issues in the async thread.
      */
     @Async("documentProcessingExecutor")
-    public void processDocumentAsync(UUID documentRecordId, byte[] fileBytes, String originalFilename) {
+    @Transactional
+    public void processDocumentAsync(UUID documentRecordId, UUID knowledgeBaseId,
+                                     byte[] fileBytes, String originalFilename) {
         log.info("Starting async processing for document: id={}", documentRecordId);
 
         DocumentRecord record = documentRecordRepository.findById(documentRecordId)
@@ -94,8 +97,7 @@ public class DocumentIngestionService {
             record.setLanguage(language);
             documentRecordRepository.save(record);
 
-            // Chunk the documents
-            UUID knowledgeBaseId = record.getKnowledgeBase().getId();
+            // Chunk the documents (using the explicitly passed knowledgeBaseId)
             List<Document> chunks = chunkingService.chunkDocuments(
                     pages, knowledgeBaseId, record.getId(), language);
 
@@ -154,8 +156,11 @@ public class DocumentIngestionService {
             throw new IllegalArgumentException("Only PDF files are accepted");
         }
         String contentType = file.getContentType();
-        if (contentType != null && !contentType.equals("application/pdf")) {
-            throw new IllegalArgumentException("Invalid content type. Expected application/pdf, got: " + contentType);
+        if (contentType != null
+                && !contentType.equals("application/pdf")
+                && !contentType.equals("application/x-pdf")
+                && !contentType.equals("application/octet-stream")) {
+            throw new IllegalArgumentException("Invalid content type. Expected a PDF file, got: " + contentType);
         }
     }
 }
