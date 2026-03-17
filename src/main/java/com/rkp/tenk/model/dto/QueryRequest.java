@@ -18,6 +18,6 @@ public record QueryRequest(
 ) {
     public QueryRequest {
         if (topK == null) topK = 5;
-        if (similarityThreshold == null) similarityThreshold = 0.7;
+        if (similarityThreshold == null) similarityThreshold = 0.5;
     }
 }
