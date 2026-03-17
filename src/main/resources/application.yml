@@ -1,0 +1,86 @@
+spring:
+  application:
+    name: tenk-rag
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tenkrag
+    username: tenkrag
+    password: tenkrag
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+  ai:
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        dimensions: 768
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+server:
+  port: 8080
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.rkp.tenk: DEBUG
+    org.springframework.ai: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: llama3.2:3b
+      embedding:
+        model: nomic-embed-text
+
+---
+spring:
+  config:
+    activate:
+      on-profile: openai
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
+      embedding:
+        options:
+          model: text-embedding-3-small
+    vectorstore:
+      pgvector:
+        dimensions: 1536

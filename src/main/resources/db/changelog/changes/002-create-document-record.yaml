@@ -1,0 +1,74 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-document-record
+      author: rkp
+      changes:
+        - createTable:
+            tableName: document_record
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: knowledge_base_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: filename
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: original_filename
+                  type: varchar(255)
+              - column:
+                  name: file_size
+                  type: bigint
+              - column:
+                  name: status
+                  type: varchar(20)
+                  defaultValue: PENDING
+                  constraints:
+                    nullable: false
+              - column:
+                  name: chunk_count
+                  type: integer
+              - column:
+                  name: total_pages
+                  type: integer
+              - column:
+                  name: pages_processed
+                  type: integer
+              - column:
+                  name: language
+                  type: varchar(10)
+              - column:
+                  name: error_message
+                  type: text
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: processed_at
+                  type: timestamp with time zone
+        - addForeignKeyConstraint:
+            baseTableName: document_record
+            baseColumnNames: knowledge_base_id
+            referencedTableName: knowledge_base
+            referencedColumnNames: id
+            constraintName: fk_document_record_knowledge_base
+            onDelete: CASCADE
+        - createIndex:
+            tableName: document_record
+            indexName: idx_document_record_knowledge_base_id
+            columns:
+              - column:
+                  name: knowledge_base_id

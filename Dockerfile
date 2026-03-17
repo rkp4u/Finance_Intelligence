@@ -1,31 +1,15 @@
-FROM eclipse-temurin:17-jdk-focal
-
-# Install Tesseract OCR and required dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    tesseract-ocr \
-    libtesseract-dev \
-    tesseract-ocr-eng \
-    libleptonica-dev \
-    libpng-dev \
-    libjpeg-dev \
-    libtiff-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Verify Tesseract installation
-RUN tesseract --version
-
-# Create directory for application
+# Build stage
+FROM eclipse-temurin:17-jdk-focal AS build
 WORKDIR /app
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+RUN chmod +x mvnw && ./mvnw dependency:resolve -q
+COPY src src
+RUN ./mvnw package -DskipTests -q
 
-# Copy the JAR file
-COPY target/*.jar app.jar
-
-# Expose the port the app runs on
+# Runtime stage
+FROM eclipse-temurin:17-jre-focal
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
-
-# Run the application
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
-# docker build -t myapp:latest .
-# docker run -d -p 8080:8080 myapp:latest
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS:-} -jar app.jar"]

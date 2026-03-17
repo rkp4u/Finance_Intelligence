@@ -1,0 +1,161 @@
+package com.rkp.tenk.service;
+
+import com.rkp.tenk.exception.DocumentProcessingException;
+import com.rkp.tenk.model.entity.DocumentRecord;
+import com.rkp.tenk.model.entity.KnowledgeBase;
+import com.rkp.tenk.model.enums.DocumentStatus;
+import com.rkp.tenk.repository.DocumentRecordRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class DocumentIngestionService {
+
+    private static final int VECTOR_STORE_BATCH_SIZE = 50;
+
+    private final PdfProcessingService pdfProcessingService;
+    private final ChunkingService chunkingService;
+    private final VectorStore vectorStore;
+    private final DocumentRecordRepository documentRecordRepository;
+
+    /**
+     * Create a document record and start async processing.
+     */
+    @Transactional
+    public DocumentRecord initiateIngestion(MultipartFile file, KnowledgeBase knowledgeBase) {
+        validatePdf(file);
+
+        String storedFilename = UUID.randomUUID() + ".pdf";
+
+        DocumentRecord record = new DocumentRecord();
+        record.setKnowledgeBase(knowledgeBase);
+        record.setFilename(storedFilename);
+        record.setOriginalFilename(file.getOriginalFilename());
+        record.setFileSize(file.getSize());
+        record.setStatus(DocumentStatus.PROCESSING);
+
+        record = documentRecordRepository.save(record);
+        log.info("Created document record: id={}, filename={}", record.getId(), file.getOriginalFilename());
+
+        return record;
+    }
+
+    /**
+     * Process the document asynchronously: extract text, chunk, embed, and store.
+     */
+    @Async("documentProcessingExecutor")
+    public void processDocumentAsync(UUID documentRecordId, byte[] fileBytes, String originalFilename) {
+        log.info("Starting async processing for document: id={}", documentRecordId);
+
+        DocumentRecord record = documentRecordRepository.findById(documentRecordId)
+                .orElseThrow(() -> new DocumentProcessingException("Document record not found: " + documentRecordId));
+
+        try {
+            Resource pdfResource = new ByteArrayResource(fileBytes) {
+                @Override
+                public String getFilename() {
+                    return originalFilename;
+                }
+            };
+
+            // Extract text with progress tracking
+            List<Document> pages = pdfProcessingService.extractTextBatched(pdfResource, new PdfProcessingService.ProgressCallback() {
+                @Override
+                public void onTotalPages(int totalPages) {
+                    record.setTotalPages(totalPages);
+                    documentRecordRepository.save(record);
+                }
+
+                @Override
+                public void onBatchProcessed(int pagesProcessed) {
+                    record.setPagesProcessed(pagesProcessed);
+                    documentRecordRepository.save(record);
+                }
+            });
+
+            // Detect language
+            String language = pdfProcessingService.detectLanguage(pages);
+            record.setLanguage(language);
+            documentRecordRepository.save(record);
+
+            // Chunk the documents
+            UUID knowledgeBaseId = record.getKnowledgeBase().getId();
+            List<Document> chunks = chunkingService.chunkDocuments(
+                    pages, knowledgeBaseId, record.getId(), language);
+
+            // Store in vector store in batches
+            storeChunksInBatches(chunks);
+
+            // Mark as ready
+            record.setStatus(DocumentStatus.READY);
+            record.setChunkCount(chunks.size());
+            record.setProcessedAt(Instant.now());
+            documentRecordRepository.save(record);
+
+            log.info("Document processing complete: id={}, chunks={}, pages={}, language={}",
+                    documentRecordId, chunks.size(), record.getTotalPages(), language);
+
+        } catch (Exception e) {
+            log.error("Document processing failed: id={}", documentRecordId, e);
+            record.setStatus(DocumentStatus.FAILED);
+            record.setErrorMessage(e.getMessage());
+            record.setProcessedAt(Instant.now());
+            documentRecordRepository.save(record);
+        }
+    }
+
+    /**
+     * Store chunks in the vector store in batches to manage memory.
+     */
+    private void storeChunksInBatches(List<Document> chunks) {
+        for (int i = 0; i < chunks.size(); i += VECTOR_STORE_BATCH_SIZE) {
+            int end = Math.min(i + VECTOR_STORE_BATCH_SIZE, chunks.size());
+            List<Document> batch = new ArrayList<>(chunks.subList(i, end));
+            vectorStore.add(batch);
+            log.debug("Stored chunk batch {}-{} of {}", i + 1, end, chunks.size());
+        }
+    }
+
+    /**
+     * Delete all vector store entries for a specific document.
+     */
+    public void deleteDocumentVectors(UUID documentId) {
+        try {
+            vectorStore.delete("document_id == '" + documentId + "'");
+            log.info("Deleted vector store entries for document: id={}", documentId);
+        } catch (Exception e) {
+            log.warn("Failed to delete vector store entries for document: id={}, error={}",
+                    documentId, e.getMessage());
+        }
+    }
+
+    private void validatePdf(MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("File is empty");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !originalFilename.toLowerCase().endsWith(".pdf")) {
+            throw new IllegalArgumentException("Only PDF files are accepted");
+        }
+        String contentType = file.getContentType();
+        if (contentType != null && !contentType.equals("application/pdf")) {
+            throw new IllegalArgumentException("Invalid content type. Expected application/pdf, got: " + contentType);
+        }
+    }
+}
