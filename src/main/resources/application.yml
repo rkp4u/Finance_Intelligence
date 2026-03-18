@@ -28,6 +28,11 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
+  web:
+    resources:
+      cache:
+        period: 0
+
 server:
   port: 8080
 

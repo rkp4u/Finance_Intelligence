@@ -183,7 +183,7 @@ async function sendQuery() {
         const res = await fetch(`${API}/${activeKbId}/query`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question, topK: 5, similarityThreshold: 0.7 })
+            body: JSON.stringify({ question, topK: 5 })
         });
 
         removeLastMessage();
