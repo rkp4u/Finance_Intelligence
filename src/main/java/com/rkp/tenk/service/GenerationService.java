@@ -8,11 +8,13 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class GenerationService {
+
+    /** Approximate max characters of context to send to LLM (~12K tokens ≈ 48K chars) */
+    private static final int MAX_CONTEXT_CHARS = 48_000;
 
     private static final String SYSTEM_PROMPT = """
             You are a financial analyst assistant specializing in SEC 10-K filings and financial documents.
@@ -43,9 +45,7 @@ public class GenerationService {
                     + "Please ensure the relevant documents have been uploaded and processed.";
         }
 
-        String context = contextDocuments.stream()
-                .map(this::formatChunkWithMetadata)
-                .collect(Collectors.joining("\n\n---\n\n"));
+        String context = buildTruncatedContext(contextDocuments);
 
         String userPrompt = """
                 Context from documents:
@@ -67,6 +67,25 @@ public class GenerationService {
             log.error("LLM generation failed for question: {}", question, e);
             throw new QueryException("Failed to generate answer: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Build context string from retrieved chunks, truncating to fit within
+     * the LLM's context window. Prioritizes higher-ranked (more relevant) chunks.
+     */
+    private String buildTruncatedContext(List<Document> documents) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < documents.size(); i++) {
+            String formatted = formatChunkWithMetadata(documents.get(i));
+            if (sb.length() + formatted.length() > MAX_CONTEXT_CHARS) {
+                log.info("Truncated context at chunk {}/{} to stay within {} char limit",
+                        i, documents.size(), MAX_CONTEXT_CHARS);
+                break;
+            }
+            if (i > 0) sb.append("\n\n---\n\n");
+            sb.append(formatted);
+        }
+        return sb.toString();
     }
 
     private String formatChunkWithMetadata(Document doc) {
