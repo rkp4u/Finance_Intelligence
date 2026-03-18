@@ -57,11 +57,12 @@ public class GenerationService {
                 """.formatted(context, question);
 
         try {
-            return chatClient.prompt()
+            String response = chatClient.prompt()
                     .system(SYSTEM_PROMPT)
                     .user(userPrompt)
                     .call()
                     .content();
+            return stripThinkingBlock(response);
         } catch (Exception e) {
             log.error("LLM generation failed for question: {}", question, e);
             throw new QueryException("Failed to generate answer: " + e.getMessage(), e);
@@ -79,5 +80,14 @@ public class GenerationService {
     private String getMetadataString(Map<String, Object> metadata, String key, String defaultValue) {
         Object value = metadata.get(key);
         return value != null ? value.toString() : defaultValue;
+    }
+
+    /**
+     * Strip reasoning/thinking blocks from models like Qwen 3 that include
+     * chain-of-thought in {@code <think>...</think>} tags.
+     */
+    private String stripThinkingBlock(String response) {
+        if (response == null) return "";
+        return response.replaceAll("(?s)<think>.*?</think>\\s*", "").trim();
     }
 }

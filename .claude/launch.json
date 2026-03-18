@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "spring-boot-app",
+      "runtimeExecutable": "./mvnw",
+      "runtimeArgs": ["spring-boot:run", "-Dspring-boot.run.profiles=lmstudio"],
+      "port": 8080
+    },
+    {
+      "name": "docker-infra",
+      "runtimeExecutable": "docker-compose",
+      "runtimeArgs": ["up", "postgres"],
+      "port": 5432
+    }
+  ]
+}
