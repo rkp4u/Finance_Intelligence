@@ -1,0 +1,143 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-financial-data
+      author: rkp
+      changes:
+        - createTable:
+            tableName: financial_data
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: document_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    unique: true
+                    foreignKeyName: fk_financial_data_document
+                    references: document_record(id)
+                    deleteCascade: true
+              - column:
+                  name: knowledge_base_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_financial_data_knowledge_base
+                    references: knowledge_base(id)
+                    deleteCascade: true
+              # Company metadata
+              - column:
+                  name: company_name
+                  type: varchar(255)
+              - column:
+                  name: fiscal_year
+                  type: varchar(20)
+              - column:
+                  name: fiscal_year_end_date
+                  type: date
+              - column:
+                  name: currency_code
+                  type: varchar(10)
+              - column:
+                  name: accounting_standard
+                  type: varchar(20)
+              - column:
+                  name: amounts_in_unit
+                  type: varchar(20)
+              # Balance sheet fields
+              - column:
+                  name: total_assets
+                  type: numeric(20,2)
+              - column:
+                  name: current_assets
+                  type: numeric(20,2)
+              - column:
+                  name: total_liabilities
+                  type: numeric(20,2)
+              - column:
+                  name: current_liabilities
+                  type: numeric(20,2)
+              - column:
+                  name: total_equity
+                  type: numeric(20,2)
+              - column:
+                  name: cash_and_equivalents
+                  type: numeric(20,2)
+              - column:
+                  name: trade_receivables
+                  type: numeric(20,2)
+              - column:
+                  name: trade_payables
+                  type: numeric(20,2)
+              - column:
+                  name: accumulated_profit
+                  type: numeric(20,2)
+              # Income statement fields
+              - column:
+                  name: revenue
+                  type: numeric(20,2)
+              - column:
+                  name: cost_of_sales
+                  type: numeric(20,2)
+              - column:
+                  name: gross_profit
+                  type: numeric(20,2)
+              - column:
+                  name: net_income
+                  type: numeric(20,2)
+              # Extraction metadata
+              - column:
+                  name: extraction_status
+                  type: varchar(20)
+                  defaultValue: PENDING
+                  constraints:
+                    nullable: false
+              - column:
+                  name: extraction_model
+                  type: varchar(100)
+              - column:
+                  name: extraction_confidence
+                  type: double
+              - column:
+                  name: extraction_error
+                  type: text
+              - column:
+                  name: raw_llm_response
+                  type: text
+              # Validation
+              - column:
+                  name: validation_status
+                  type: varchar(20)
+              - column:
+                  name: validation_details
+                  type: jsonb
+              # Timestamps
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: extracted_at
+                  type: timestamptz
+              - column:
+                  name: validated_at
+                  type: timestamptz
+        - createIndex:
+            indexName: idx_financial_data_knowledge_base_id
+            tableName: financial_data
+            columns:
+              - column:
+                  name: knowledge_base_id
+        - createIndex:
+            indexName: idx_financial_data_company_name
+            tableName: financial_data
+            columns:
+              - column:
+                  name: company_name

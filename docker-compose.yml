@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: tenkrag
+      POSTGRES_USER: tenkrag
+      POSTGRES_PASSWORD: tenkrag
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tenkrag -d tenkrag"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Ollama service - only needed if NOT running Ollama natively.
+  # For best performance on Apple Silicon, run Ollama natively:
+  #   brew install ollama
+  #   OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve
+  #   ollama pull qwen3:14b && ollama pull nomic-embed-text
+  ollama:
+    build: ./ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    profiles:
+      - docker-ollama
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tenkrag
+      SPRING_DATASOURCE_USERNAME: tenkrag
+      SPRING_DATASOURCE_PASSWORD: tenkrag
+      SPRING_AI_OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      JAVA_OPTS: "-Xmx1g"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  ollama_data:

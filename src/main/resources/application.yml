@@ -1,0 +1,148 @@
+app:
+  model-name: unknown
+
+spring:
+  application:
+    name: tenk-rag
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tenkrag
+    username: tenkrag
+    password: tenkrag
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  ai:
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        dimensions: 768
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+  web:
+    resources:
+      cache:
+        period: 0
+
+server:
+  port: 8080
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.rkp.tenk: DEBUG
+    org.springframework.ai: INFO
+
+rag:
+  agentic:
+    enabled: false
+    max-evaluation-retries: 1
+
+financial-extraction:
+  enabled: true
+  validation-tolerance-percent: 1.0
+  max-pages-per-statement: 3
+
+---
+app:
+  model-name: qwen3:14b
+spring:
+  config:
+    activate:
+      on-profile: dev
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: qwen3:14b
+      embedding:
+        model: nomic-embed-text
+
+---
+# LM Studio profile - runs models locally via OpenAI-compatible API
+# Start LM Studio, load a chat model + embedding model, enable server on port 1234
+app:
+  model-name: qwen3-14b-claude-4.5-opus-high-reasoning-distill
+spring:
+  config:
+    activate:
+      on-profile: lmstudio
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaEmbeddingAutoConfiguration
+  ai:
+    openai:
+      base-url: http://localhost:1234
+      api-key: lm-studio
+      connect-timeout: 10s
+      read-timeout: 120s
+      chat:
+        options:
+          model: qwen3-14b-claude-4.5-opus-high-reasoning-distill
+      embedding:
+        options:
+          model: text-embedding-nomic-embed-text-v1.5
+    vectorstore:
+      pgvector:
+        dimensions: 768
+
+---
+# OpenAI Cloud profile - uses real OpenAI API
+app:
+  model-name: gpt-4o-mini
+spring:
+  config:
+    activate:
+      on-profile: openai
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaEmbeddingAutoConfiguration
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
+      embedding:
+        options:
+          model: text-embedding-3-small
+          dimensions: 768
+    vectorstore:
+      pgvector:
+        dimensions: 768
