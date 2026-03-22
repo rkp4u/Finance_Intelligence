@@ -56,7 +56,8 @@ const state = {
     documents: [],
     financialDataMap: {},  // docId -> FinancialDataResponse
     pollingIntervals: {},
-    compareSelected: new Set()
+    compareSelected: new Set(),
+    extractionPollId: null
 };
 
 // ============================================
@@ -70,7 +71,12 @@ async function loadKnowledgeBases() {
 async function createKnowledgeBase() {
     const input = document.getElementById('kb-name');
     const name = input.value.trim();
-    if (!name) return;
+    if (!name) {
+        input.classList.add('shake');
+        input.placeholder = 'Please enter a name...';
+        setTimeout(() => input.classList.remove('shake'), 400);
+        return;
+    }
     const res = await api.createKB(name);
     if (res.id) { input.value = ''; await loadKnowledgeBases(); }
     else alert(res.message || 'Failed to create');
@@ -85,6 +91,8 @@ async function deleteKnowledgeBase(id, event) {
 }
 
 function selectKnowledgeBase(id) {
+    // Clear all stale polling from previous KB
+    clearAllPolling();
     state.activeKbId = id;
     state.activeDocId = null;
     document.getElementById('empty-state').style.display = 'none';
@@ -94,6 +102,11 @@ function selectKnowledgeBase(id) {
     loadDocuments();
     clearMessages();
     hideDashboardContent();
+}
+
+function clearAllPolling() {
+    Object.keys(state.pollingIntervals).forEach(id => stopPolling(id));
+    if (state.extractionPollId) { clearInterval(state.extractionPollId); state.extractionPollId = null; }
 }
 
 function showEmptyState() {
@@ -181,8 +194,10 @@ function uploadDocument(file) {
 
 function startPolling(docId) {
     if (state.pollingIntervals[docId]) return;
+    const kbId = state.activeKbId; // capture KB at poll start
     state.pollingIntervals[docId] = setInterval(async () => {
-        const doc = await api.getDoc(state.activeKbId, docId);
+        if (state.activeKbId !== kbId) { stopPolling(docId); return; } // stale KB guard
+        const doc = await api.getDoc(kbId, docId);
         if (doc.status === 'READY' || doc.status === 'FAILED') {
             stopPolling(docId);
             await loadDocuments();
@@ -223,11 +238,33 @@ async function loadDashboard(docId) {
 
     const fd = await api.getFinancialData(state.activeKbId, docId);
     if (!fd || fd.status === 404) {
-        content.innerHTML = '<div class="tab-empty">No financial data extracted for this document</div>';
+        content.innerHTML = '<div class="tab-empty">No financial data extracted for this document yet.<br>It will appear automatically when extraction completes.</div>';
+        // Poll until extraction appears
+        startExtractionPolling(docId);
         return;
     }
     state.financialDataMap[docId] = fd;
     renderDashboard(fd);
+
+    // If still extracting, poll for completion
+    if (fd.extractionStatus === 'EXTRACTING' || fd.extractionStatus === 'PENDING') {
+        startExtractionPolling(docId);
+    }
+}
+
+function startExtractionPolling(docId) {
+    if (state.extractionPollId) clearInterval(state.extractionPollId);
+    state.extractionPollId = setInterval(async () => {
+        if (state.activeDocId !== docId) { clearInterval(state.extractionPollId); return; }
+        const fd = await api.getFinancialData(state.activeKbId, docId);
+        if (fd && (fd.extractionStatus === 'COMPLETED' || fd.extractionStatus === 'FAILED')) {
+            clearInterval(state.extractionPollId);
+            state.financialDataMap[docId] = fd;
+            renderDashboard(fd);
+            // Also refresh doc list to update extraction dots
+            loadDocuments();
+        }
+    }, 3000);
 }
 
 function hideDashboardContent() {
@@ -239,35 +276,72 @@ function renderDashboard(fd) {
     const content = document.getElementById('dashboard-content');
     content.innerHTML = '';
 
-    // Extraction header
+    // Build trust strip summary
+    const checks = fd.validationChecks || [];
+    const passed = checks.filter(c => c.passed).length;
+    const failed = checks.filter(c => !c.passed).length;
+    const xbrlChecks = checks.filter(c => c.checkName && c.checkName.includes('XBRL'));
+    const xbrlPassed = xbrlChecks.filter(c => c.passed).length;
+
+    // Header card with trust strip
     const header = document.createElement('div');
-    header.className = 'extraction-header';
+    header.className = 'dash-header';
     header.innerHTML = `
-        <div>
-            <div class="company-info">
-                <h2>${esc(fd.companyName || 'Unknown Company')}</h2>
-                <div class="company-meta">
-                    <span class="meta-tag">${esc(fd.fiscalYear || '?')}</span>
-                    <span class="meta-tag">${esc(fd.currencyCode || '?')}</span>
-                    <span class="meta-tag">${esc(fd.accountingStandard || '?')}</span>
-                    <span class="meta-tag">${esc(fd.amountsInUnit || '?')}</span>
+        <div class="dash-header-top">
+            <div>
+                <div class="company-name">${esc(fd.companyName || 'Unknown Company')}</div>
+                <div class="meta-pills">
+                    <span class="meta-pill">FY ${esc(fd.fiscalYear || '?')}</span>
+                    <span class="meta-pill">${esc(fd.currencyCode || '?')}</span>
+                    <span class="meta-pill">${esc(fd.accountingStandard || '?')}</span>
+                    <span class="meta-pill">${esc(fd.amountsInUnit || '?')}</span>
                 </div>
+                ${fd.extractionStatus === 'COMPLETED' ? `
+                <div class="header-actions">
+                    <button class="btn-ghost" onclick="handleReExtract('${fd.documentId}', this)">Re-extract</button>
+                    <button class="btn-ghost" onclick="handleReValidate('${fd.documentId}', this)">Re-validate</button>
+                </div>
+                ` : fd.extractionStatus === 'EXTRACTING' ? `
+                <div class="header-actions">
+                    <span style="font-size:12px;color:var(--amber)"><span class="loading"></span> Extraction in progress...</span>
+                </div>
+                ` : fd.extractionStatus === 'FAILED' ? `
+                <div class="header-actions">
+                    <button class="btn-ghost" onclick="handleReExtract('${fd.documentId}', this)">Retry extraction</button>
+                </div>
+                ` : ''}
             </div>
-            <div class="header-actions">
-                <button class="btn-sm" onclick="handleReExtract('${fd.documentId}')">Re-extract</button>
-                <button class="btn-sm" onclick="handleReValidate('${fd.documentId}')">Re-validate</button>
+            <div class="header-right">
+                <div style="display:flex;gap:6px;">
+                    <span class="badge ${fd.extractionStatus}">${fd.extractionStatus}</span>
+                    ${fd.validationStatus ? `<span class="badge ${fd.validationStatus}">${fd.validationStatus}</span>` : ''}
+                </div>
+                ${fd.extractionConfidence ? `
+                    <div class="confidence">
+                        <div class="conf-track"><div class="conf-fill" style="width:${Math.round(fd.extractionConfidence * 100)}%"></div></div>
+                        <span>${Math.round(fd.extractionConfidence * 100)}% confidence</span>
+                    </div>
+                ` : ''}
             </div>
         </div>
-        <div class="extraction-badges">
-            ${fd.extractionConfidence ? `
-                <div class="confidence-bar">
-                    <div class="confidence-track"><div class="confidence-fill" style="width:${Math.round(fd.extractionConfidence * 100)}%"></div></div>
-                    <span>${Math.round(fd.extractionConfidence * 100)}%</span>
+        ${checks.length > 0 ? `
+            <div class="trust-strip">
+                <div class="trust-item">
+                    <span class="trust-dot ${failed === 0 ? 'pass' : 'fail'}"></span>
+                    ${passed}/${checks.length} checks passed
                 </div>
-            ` : ''}
-            <span class="status-badge ${fd.extractionStatus}">${fd.extractionStatus}</span>
-            ${fd.validationStatus ? `<span class="status-badge ${fd.validationStatus}">${fd.validationStatus}</span>` : ''}
-        </div>
+                ${xbrlChecks.length > 0 ? `
+                    <div class="trust-item">
+                        <span class="trust-dot ${xbrlPassed === xbrlChecks.length ? 'pass' : 'warn'}"></span>
+                        ${xbrlPassed}/${xbrlChecks.length} XBRL verified
+                    </div>
+                ` : ''}
+                <div class="trust-item">
+                    <span class="trust-dot pass"></span>
+                    A = L + E balanced
+                </div>
+            </div>
+        ` : ''}
     `;
     content.appendChild(header);
 
@@ -297,19 +371,24 @@ function renderDashboard(fd) {
     content.appendChild(grid);
 
     // Validation checks
-    if (fd.validationChecks && fd.validationChecks.length > 0) {
+    if (checks.length > 0) {
         const valSection = document.createElement('div');
         valSection.className = 'validation-section';
-        valSection.innerHTML = `<h3>Validation Checks (${fd.validationChecks.filter(c => c.passed).length}/${fd.validationChecks.length} passed)</h3>
+        valSection.innerHTML = `<h3>Validation Checks (${passed}/${checks.length} passed)</h3>
             <div class="validation-checks">
-                ${fd.validationChecks.map(c => `
-                    <div class="validation-check">
-                        <span class="check-icon ${c.passed ? 'pass' : 'fail'}">${c.passed ? '✓' : '✗'}</span>
-                        <span class="check-name">${esc(c.checkName)}</span>
-                        <span class="check-detail">${esc(c.passed ? '' : `${c.actual} vs ${c.expected}`)}</span>
-                        <span class="severity-badge ${c.severity}">${c.severity}</span>
-                    </div>
-                `).join('')}
+                ${checks.map(c => {
+                    const isXbrl = c.checkName && c.checkName.includes('XBRL');
+                    const source = isXbrl ? 'XBRL' : 'Rule';
+                    const statusText = c.passed ? 'Passed' : 'Mismatch';
+                    const statusClass = c.passed ? 'pass' : 'fail';
+                    return `
+                    <div class="val-check">
+                        <span class="val-icon ${statusClass}">${c.passed ? '✓' : '✗'}</span>
+                        <span class="val-name">${esc(c.checkName)}</span>
+                        ${!c.passed ? `<span class="val-detail">${esc(c.actual)} vs ${esc(c.expected)}</span>` : ''}
+                        <span class="sev-badge ${statusClass}">${statusText}</span>
+                    </div>`;
+                }).join('')}
             </div>`;
         content.appendChild(valSection);
     }
@@ -353,8 +432,7 @@ function renderRatiosCard(fd) {
     </div>`;
 }
 
-async function handleReExtract(docId) {
-    const btn = event.target;
+async function handleReExtract(docId, btn) {
     btn.disabled = true; btn.textContent = 'Extracting...';
     const fd = await api.reExtract(state.activeKbId, docId);
     btn.disabled = false; btn.textContent = 'Re-extract';
@@ -362,8 +440,7 @@ async function handleReExtract(docId) {
     else alert('Re-extraction failed. Ensure PDF bytes are stored (re-upload if needed).');
 }
 
-async function handleReValidate(docId) {
-    const btn = event.target;
+async function handleReValidate(docId, btn) {
     btn.disabled = true; btn.textContent = 'Validating...';
     await api.reValidate(state.activeKbId, docId);
     btn.disabled = false; btn.textContent = 'Re-validate';
@@ -390,7 +467,7 @@ function renderCompareSelector() {
 
     selector.innerHTML = docsWithData.map(doc => {
         const fd = state.financialDataMap[doc.id];
-        return `<label class="compare-doc-chip" id="chip-${doc.id}">
+        return `<label class="compare-chip" id="chip-${doc.id}">
             <input type="checkbox" onchange="toggleCompareDoc('${doc.id}')">
             <span>${esc(fd.companyName || doc.filename)}</span>
         </label>`;
@@ -442,15 +519,15 @@ function renderComparisonTable(docs) {
         { key: '_netMargin', label: 'Net Margin', computed: fd => fd.netIncome != null && fd.revenue ? (fd.netIncome / fd.revenue * 100).toFixed(1) + '%' : '—' }
     ];
 
-    let html = '<table class="compare-table"><thead><tr><th>Metric</th>';
+    let html = '<table class="cmp-table"><thead><tr><th>Metric</th>';
     docs.forEach(fd => {
-        html += `<th><div class="company-header">${esc(fd.companyName || '?')}</div><span class="currency-tag">${fd.currencyCode || ''} · ${fd.amountsInUnit || ''}</span></th>`;
+        html += `<th><span class="cmp-company">${esc(fd.companyName || '?')}</span><span class="cmp-meta">${fd.currencyCode || ''} · ${fd.amountsInUnit || ''}</span></th>`;
     });
     html += '</tr></thead><tbody>';
 
     fields.forEach(f => {
         if (f.section) {
-            html += `<tr class="section-divider"><td colspan="${docs.length + 1}">${f.section}</td></tr>`;
+            html += `<tr class="section-row"><td colspan="${docs.length + 1}">${f.section}</td></tr>`;
             return;
         }
         html += '<tr>';
@@ -485,13 +562,9 @@ async function sendQuery() {
     btn.disabled = true;
 
     try {
-        const res = await fetch(`${API}/${state.activeKbId}/query`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question, topK: 5 })
-        });
+        const data = await api.query(state.activeKbId, question);
         removeLastMessage();
-        if (res.ok) {
-            const data = await res.json();
+        if (data && data.answer) {
             const sourcesHtml = data.sources.length > 0 ? `<div class="sources-section">
                 <div class="sources-header">Sources (${data.sources.length})</div>
                 <div class="source-cards">${data.sources.map(s => {
@@ -506,12 +579,11 @@ async function sendQuery() {
             const metaHtml = `<div class="meta"><span>${data.metadata.chunksRetrieved} chunks · ${data.metadata.retrievalTimeMs}ms retrieval</span><span>${(data.metadata.generationTimeMs / 1000).toFixed(1)}s generation</span></div>`;
             addMessage(renderMarkdown(data.answer) + sourcesHtml + metaHtml, 'assistant', true);
         } else {
-            const err = await res.json();
-            addMessage('Error: ' + esc(err.message || 'Query failed'), 'assistant', true);
+            addMessage('Error: No response received', 'assistant', true);
         }
     } catch (e) {
         removeLastMessage();
-        addMessage('Error: Failed to connect', 'assistant', true);
+        addMessage('Error: ' + esc(e.message || 'Failed to connect'), 'assistant', true);
     } finally { btn.disabled = false; }
 }
 
