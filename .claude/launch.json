@@ -4,7 +4,7 @@
     {
       "name": "spring-boot-app",
       "runtimeExecutable": "./mvnw",
-      "runtimeArgs": ["spring-boot:run", "-Dspring-boot.run.profiles=lmstudio"],
+      "runtimeArgs": ["spring-boot:run", "-Dspring-boot.run.profiles=lmstudio", "-Dspring-boot.run.jvmArguments=-DRAG_AGENTIC_ENABLED=true"],
       "port": 8080
     },
     {

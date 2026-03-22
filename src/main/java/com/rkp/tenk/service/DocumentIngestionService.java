@@ -61,7 +61,6 @@ public class DocumentIngestionService {
      * The knowledgeBaseId is passed explicitly to avoid lazy loading issues in the async thread.
      */
     @Async("documentProcessingExecutor")
-    @Transactional
     public void processDocumentAsync(UUID documentRecordId, UUID knowledgeBaseId,
                                      byte[] fileBytes, String originalFilename) {
         log.info("Starting async processing for document: id={}", documentRecordId);
@@ -115,23 +114,41 @@ public class DocumentIngestionService {
 
         } catch (Exception e) {
             log.error("Document processing failed: id={}", documentRecordId, e);
-            record.setStatus(DocumentStatus.FAILED);
-            record.setErrorMessage(e.getMessage());
-            record.setProcessedAt(Instant.now());
-            documentRecordRepository.save(record);
+            try {
+                record.setStatus(DocumentStatus.FAILED);
+                record.setErrorMessage(truncateMessage(e.getMessage(), 1000));
+                record.setProcessedAt(Instant.now());
+                documentRecordRepository.save(record);
+            } catch (Exception saveEx) {
+                log.error("Failed to save FAILED status for document: id={}", documentRecordId, saveEx);
+            }
         }
     }
 
     /**
      * Store chunks in the vector store in batches to manage memory.
+     * Sanitizes text content to remove null bytes that PostgreSQL rejects.
      */
     private void storeChunksInBatches(List<Document> chunks) {
         for (int i = 0; i < chunks.size(); i += VECTOR_STORE_BATCH_SIZE) {
             int end = Math.min(i + VECTOR_STORE_BATCH_SIZE, chunks.size());
-            List<Document> batch = new ArrayList<>(chunks.subList(i, end));
+            List<Document> batch = chunks.subList(i, end).stream()
+                    .map(this::sanitizeDocument)
+                    .toList();
             vectorStore.add(batch);
             log.debug("Stored chunk batch {}-{} of {}", i + 1, end, chunks.size());
         }
+    }
+
+    /**
+     * Remove null bytes (0x00) from document text — PostgreSQL UTF8 columns reject them.
+     */
+    private Document sanitizeDocument(Document doc) {
+        String text = doc.getText();
+        if (text != null && text.indexOf('\0') >= 0) {
+            return doc.mutate().text(text.replace("\0", "")).build();
+        }
+        return doc;
     }
 
     /**
@@ -145,6 +162,11 @@ public class DocumentIngestionService {
             log.warn("Failed to delete vector store entries for document: id={}, error={}",
                     documentId, e.getMessage());
         }
+    }
+
+    private String truncateMessage(String message, int maxLength) {
+        if (message == null) return null;
+        return message.length() > maxLength ? message.substring(0, maxLength) : message;
     }
 
     private void validatePdf(MultipartFile file) {

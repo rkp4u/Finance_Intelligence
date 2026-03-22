@@ -10,6 +10,8 @@ import org.springframework.web.client.RestClient;
  * Custom configuration for LM Studio compatibility.
  * LM Studio doesn't handle HTTP chunked transfer encoding properly,
  * so we provide a buffering (non-streaming) RestClient.Builder.
+ * Also uses a generous read timeout since local LLM inference
+ * on complex queries can take several minutes.
  */
 @Configuration
 @Profile("lmstudio")
@@ -19,7 +21,7 @@ public class LmStudioConfig {
     public RestClient.Builder restClientBuilder() {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(10_000);
-        requestFactory.setReadTimeout(120_000);
+        requestFactory.setReadTimeout(300_000);
 
         return RestClient.builder()
                 .requestFactory(requestFactory);

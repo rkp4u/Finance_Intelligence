@@ -1,12 +1,13 @@
 package com.rkp.tenk.controller;
 
+import com.rkp.tenk.model.dto.OrchestratorResult;
 import com.rkp.tenk.model.dto.QueryRequest;
 import com.rkp.tenk.model.dto.QueryResponse;
+import com.rkp.tenk.model.dto.QueryResponse.AgenticMetadata;
 import com.rkp.tenk.model.dto.QueryResponse.QueryMetadata;
 import com.rkp.tenk.model.dto.QueryResponse.SourceChunk;
-import com.rkp.tenk.service.GenerationService;
+import com.rkp.tenk.service.AgenticRagOrchestrator;
 import com.rkp.tenk.service.KnowledgeBaseService;
-import com.rkp.tenk.service.RetrievalService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -29,8 +30,7 @@ import java.util.UUID;
 public class QueryController {
 
     private final KnowledgeBaseService knowledgeBaseService;
-    private final RetrievalService retrievalService;
-    private final GenerationService generationService;
+    private final AgenticRagOrchestrator orchestrator;
 
     @Value("${spring.ai.ollama.chat.model:unknown}")
     private String modelName;
@@ -47,30 +47,32 @@ public class QueryController {
         log.info("Query received for knowledge base {}: {}", kbId,
                 request.question().substring(0, Math.min(100, request.question().length())));
 
-        // Retrieve relevant chunks
-        long retrievalStart = System.currentTimeMillis();
-        List<Document> relevantChunks = retrievalService.retrieveRelevantChunks(
-                request.question(), kbId, request.topK(), request.similarityThreshold());
-        long retrievalTimeMs = System.currentTimeMillis() - retrievalStart;
-
-        // Generate answer
-        long generationStart = System.currentTimeMillis();
-        String answer = generationService.generateAnswer(request.question(), relevantChunks);
-        long generationTimeMs = System.currentTimeMillis() - generationStart;
+        OrchestratorResult result = orchestrator.execute(
+                request.question(), kbId, request.topK(),
+                request.similarityThreshold(), request.agenticMode());
 
         // Build source chunks for response
-        List<SourceChunk> sources = relevantChunks.stream()
+        List<SourceChunk> sources = result.sourceDocuments().stream()
                 .map(this::toSourceChunk)
                 .toList();
 
+        AgenticMetadata agenticMetadata = result.agenticMode()
+                ? new AgenticMetadata(
+                        result.decompositionTimeMs(),
+                        result.evaluationTimeMs(),
+                        result.evaluationRounds(),
+                        result.subQueriesUsed())
+                : null;
+
         QueryMetadata metadata = new QueryMetadata(
-                relevantChunks.size(),
-                retrievalTimeMs,
-                generationTimeMs,
-                modelName
+                result.sourceDocuments().size(),
+                result.retrievalTimeMs(),
+                result.generationTimeMs(),
+                modelName,
+                agenticMetadata
         );
 
-        return ResponseEntity.ok(new QueryResponse(answer, sources, metadata));
+        return ResponseEntity.ok(new QueryResponse(result.answer(), sources, metadata));
     }
 
     private SourceChunk toSourceChunk(Document doc) {

@@ -56,6 +56,11 @@ logging:
     com.rkp.tenk: DEBUG
     org.springframework.ai: INFO
 
+rag:
+  agentic:
+    enabled: false
+    max-evaluation-retries: 1
+
 ---
 spring:
   config:
@@ -96,7 +101,7 @@ spring:
       read-timeout: 120s
       chat:
         options:
-          model: qwen/qwen3-14b
+          model: qwen3-14b-claude-4.5-opus-high-reasoning-distill
       embedding:
         options:
           model: text-embedding-nomic-embed-text-v1.5

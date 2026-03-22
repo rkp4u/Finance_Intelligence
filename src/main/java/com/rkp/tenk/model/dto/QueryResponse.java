@@ -1,5 +1,7 @@
 package com.rkp.tenk.model.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -21,6 +23,15 @@ public record QueryResponse(
             int chunksRetrieved,
             long retrievalTimeMs,
             long generationTimeMs,
-            String modelUsed
+            String modelUsed,
+            @JsonInclude(JsonInclude.Include.NON_NULL)
+            AgenticMetadata agentic
+    ) {}
+
+    public record AgenticMetadata(
+            long decompositionTimeMs,
+            long evaluationTimeMs,
+            int evaluationRounds,
+            List<String> subQueriesUsed
     ) {}
 }

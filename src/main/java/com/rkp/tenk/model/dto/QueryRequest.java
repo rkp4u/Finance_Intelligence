@@ -14,10 +14,13 @@ public record QueryRequest(
         @Max(value = 20, message = "topK must be at most 20")
         Integer topK,
 
-        Double similarityThreshold
+        Double similarityThreshold,
+
+        Boolean agenticMode
 ) {
     public QueryRequest {
         if (topK == null) topK = 5;
         if (similarityThreshold == null) similarityThreshold = 0.3;
+        // agenticMode: null means use global config default
     }
 }
