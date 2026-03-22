@@ -36,3 +36,9 @@ build/
 .env
 .env.local
 .env.*.local
+
+### Claude Code ###
+.claude/launch.json
+.claude/settings.local.json
+.claude/plans/
+.claude/worktrees/
