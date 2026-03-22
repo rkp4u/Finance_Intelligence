@@ -25,6 +25,8 @@ public record QueryResponse(
             long generationTimeMs,
             String modelUsed,
             @JsonInclude(JsonInclude.Include.NON_NULL)
+            String queryType,
+            @JsonInclude(JsonInclude.Include.NON_NULL)
             AgenticMetadata agentic
     ) {}
 

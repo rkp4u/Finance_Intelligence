@@ -8,6 +8,8 @@ import com.rkp.tenk.model.dto.QueryResponse.QueryMetadata;
 import com.rkp.tenk.model.dto.QueryResponse.SourceChunk;
 import com.rkp.tenk.service.AgenticRagOrchestrator;
 import com.rkp.tenk.service.KnowledgeBaseService;
+import com.rkp.tenk.service.QueryClassifier;
+import com.rkp.tenk.service.StructuredQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -31,6 +33,8 @@ public class QueryController {
 
     private final KnowledgeBaseService knowledgeBaseService;
     private final AgenticRagOrchestrator orchestrator;
+    private final QueryClassifier queryClassifier;
+    private final StructuredQueryService structuredQueryService;
 
     @Value("${app.model-name:unknown}")
     private String modelName;
@@ -47,6 +51,22 @@ public class QueryController {
         log.info("Query received for knowledge base {}: {}", kbId,
                 request.question().substring(0, Math.min(100, request.question().length())));
 
+        // Step 1: Classify the query
+        QueryClassifier.ClassificationResult classification = queryClassifier.classify(request.question());
+        log.info("Query classified as {} with fields {}", classification.type(), classification.detectedFields());
+
+        // Step 2: Try structured answer for financial data queries
+        if (classification.type() != QueryClassifier.QueryType.NARRATIVE) {
+            QueryResponse structured = structuredQueryService.answer(
+                    request.question(), kbId, classification);
+            if (structured != null) {
+                log.info("Answered via structured lookup in {}ms", structured.metadata().retrievalTimeMs());
+                return ResponseEntity.ok(structured);
+            }
+            log.info("No structured data available, falling through to RAG");
+        }
+
+        // Step 3: Fall through to RAG pipeline
         OrchestratorResult result = orchestrator.execute(
                 request.question(), kbId, request.topK(),
                 request.similarityThreshold(), request.agenticMode());
@@ -69,6 +89,7 @@ public class QueryController {
                 result.retrievalTimeMs(),
                 result.generationTimeMs(),
                 modelName,
+                "RAG",
                 agenticMetadata
         );
 

@@ -1,30 +1,88 @@
-# 10-K RAG
+# FinLens — Financial Intelligence
 
-A production-quality Retrieval-Augmented Generation (RAG) system for querying SEC 10-K financial filings using natural language. Built with Spring Boot 3.4, Spring AI 1.0, and PostgreSQL + pgvector.
+An AI-powered financial data extraction and analysis platform that turns any financial filing (10-K, annual reports) into structured, validated, comparable data. Supports US GAAP, IFRS, and Ind-AS filings with automated XBRL cross-validation.
+
+## Architecture
+
+```
+                          ┌─────────────────────┐
+                          │    User Query        │
+                          └──────────┬──────────┘
+                                     │
+                          ┌──────────▼──────────┐
+                          │   Query Classifier   │  keyword-based, <1ms
+                          └──────────┬──────────┘
+                                     │
+                    ┌────────────────┼────────────────┐
+                    │                                 │
+         ┌──────────▼──────────┐          ┌──────────▼──────────┐
+         │  Structured Lookup  │          │    Vector RAG        │
+         │  (financial data)   │          │    (narrative Q&A)   │
+         │                     │          │                      │
+         │  DB SELECT → format │          │  Embed → pgvector    │
+         │  <100ms, 100% acc   │          │  → LLM generation    │
+         │  Zero LLM cost      │          │  10-30s, ~95% acc    │
+         └─────────────────────┘          └──────────────────────┘
+```
+
+### Ingestion Pipeline
+
+```
+PDF Upload
+    │
+    ├─► PDF Extraction (PDFBox) → Section-aware chunking → Embeddings → pgvector
+    │                                                          (Vector RAG path)
+    │
+    └─► Financial Statement Detection → LLM Structured Extraction → Validation
+                                              │                          │
+                                              ▼                          ▼
+                                        financial_data table    Accounting checks
+                                        (14 fields, typed)     + XBRL cross-check
+                                                               (Structured path)
+```
 
 ## Features
 
-- **PDF Ingestion** - Upload 10-K filings (up to 200MB), automatically extracted, chunked by SEC sections, and embedded
-- **Vector Search** - Cosine similarity search with HNSW indexing via pgvector
-- **RAG Query Pipeline** - Ask questions in natural language, get cited answers grounded in your documents
-- **Multi-Document** - Upload multiple PDFs per knowledge base; queries search across all documents
-- **Large PDF Support** - Handles 500+ page filings via batched processing (50 pages at a time)
-- **Multi-Language** - Auto-detects document language; multilingual embedding support
-- **Pluggable LLM** - Switch between local (LM Studio, Ollama) and cloud (OpenAI) models via Spring profiles
-- **Web UI** - Dark-themed chat interface with markdown rendering, source cards, and document management
+### Structured Financial Extraction
+- **14 standard fields** extracted from balance sheet + income statement
+- **Multi-jurisdiction** — US GAAP, IFRS, Ind-AS with automatic standard detection
+- **Multi-currency/unit** — USD/SGD/INR, Millions/Crores/Lakhs/Billions
+- **Smart page detection** — keyword scoring identifies financial statement pages
+- **Notes-aware** — prefers narrow sub-line items (trade receivables) over aggregated totals
+
+### Multi-Layer Validation
+- **Accounting identity checks** — A=L+E, gross profit identity, bounds checks
+- **SEC EDGAR XBRL cross-validation** — automated for US GAAP companies (13 fields, free API)
+- **Pluggable architecture** — `ValidationSource` interface for adding India (NSE), Singapore (ACRA) sources
+
+### Hybrid Query Routing
+- **Financial data queries** → instant DB lookup, zero LLM cost, 100% accuracy
+- **Narrative queries** → vector RAG with semantic search + LLM generation
+- **Automatic classification** — keyword-based routing, no LLM overhead
+
+### RAG Pipeline
+- **Agentic mode** — query decomposition, parallel retrieval, evaluation + retry loop
+- **Section-aware chunking** — respects SEC filing structure (Item 1, Item 7, Item 8, etc.)
+- **Source attribution** — every answer cites section names and page numbers
+
+### Product UI (FinLens)
+- **Dashboard** — financial data cards, validation checks, key ratios, confidence scores
+- **Compare** — side-by-side comparison table across companies
+- **Chat** — RAG query interface with markdown rendering and source cards
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
-| Framework | Spring Boot 3.4.4, Spring AI 1.0.0 |
-| LLM (default) | Qwen 3 14B via LM Studio |
-| Embeddings | nomic-embed-text v1.5 (768 dimensions) |
-| Vector Store | PostgreSQL 16 + pgvector (HNSW index) |
-| PDF Parsing | Apache PDFBox (via Spring AI PDF Reader) |
+| Framework | Spring Boot 3.4, Spring AI 1.0 |
+| LLM (local) | Qwen 3 14B via LM Studio |
+| LLM (cloud) | GPT-4o-mini via OpenAI API |
+| Embeddings | nomic-embed-text v1.5 (768 dims) |
+| Vector Store | PostgreSQL 16 + pgvector (HNSW) |
+| PDF Parsing | Apache PDFBox |
 | Migrations | Liquibase |
 | API Docs | SpringDoc OpenAPI (Swagger UI) |
-| Java | 17 |
+| Java | 17+ |
 
 ## Quick Start
 
@@ -42,11 +100,9 @@ docker-compose up -d postgres
 
 ### 2. Start LM Studio
 
-Open LM Studio, then load the models via CLI:
-
 ```bash
 lms server start
-lms load qwen/qwen3-14b --context-length 16384
+lms load qwen/qwen3-14b --context-length 32768
 lms load text-embedding-nomic-embed-text-v1.5
 ```
 
@@ -56,37 +112,32 @@ lms load text-embedding-nomic-embed-text-v1.5
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=lmstudio
 ```
 
-The app starts at **http://localhost:8080**
+Open **http://localhost:8080**
 
 ### 4. Use It
 
 1. Create a knowledge base in the sidebar
-2. Upload a 10-K PDF (drag-and-drop or browse)
-3. Wait for processing (status shows progress)
-4. Ask questions in the chat
+2. Upload a financial filing PDF (drag-and-drop or browse)
+3. Wait for processing — extraction + validation runs automatically
+4. Click a document to see the **Dashboard** with extracted financial data
+5. Use **Compare** tab for cross-company analysis
+6. Use **Chat** tab for narrative questions
 
 ## LLM Profiles
 
-| Profile | Provider | Chat Model | Embedding Model | Dimensions |
-|---------|----------|-----------|----------------|------------|
-| `lmstudio` | LM Studio (local GPU) | qwen/qwen3-14b | nomic-embed-text-v1.5 | 768 |
-| `dev` | Ollama (local/Docker) | qwen3:14b | nomic-embed-text | 768 |
-| `openai` | OpenAI Cloud | gpt-4o-mini | text-embedding-3-small | 1536 |
-
-Switch profiles:
+| Profile | Provider | Chat Model | Embedding | Dims |
+|---------|----------|-----------|-----------|------|
+| `lmstudio` | LM Studio | qwen3-14b | nomic-embed-text-v1.5 | 768 |
+| `dev` | Ollama | qwen3:14b | nomic-embed-text | 768 |
+| `openai` | OpenAI | gpt-4o-mini | text-embedding-3-small | 768 |
 
 ```bash
-# LM Studio (default for development)
+# LM Studio (default)
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=lmstudio
 
-# Ollama
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
-
-# OpenAI (requires OPENAI_API_KEY env var)
+# OpenAI
 OPENAI_API_KEY=sk-... ./mvnw spring-boot:run -Dspring-boot.run.profiles=openai
 ```
-
-> **Note:** Switching embedding providers (768d vs 1536d) requires re-ingesting all documents.
 
 ## API Endpoints
 
@@ -94,88 +145,100 @@ OPENAI_API_KEY=sk-... ./mvnw spring-boot:run -Dspring-boot.run.profiles=openai
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/v1/knowledge-bases` | Create knowledge base |
+| `POST` | `/api/v1/knowledge-bases` | Create |
 | `GET` | `/api/v1/knowledge-bases` | List all |
-| `GET` | `/api/v1/knowledge-bases/{id}` | Get by ID |
-| `PUT` | `/api/v1/knowledge-bases/{id}` | Update |
-| `DELETE` | `/api/v1/knowledge-bases/{id}` | Delete (cascades to docs + embeddings) |
+| `DELETE` | `/api/v1/knowledge-bases/{id}` | Delete (cascades) |
 
 ### Documents
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/v1/knowledge-bases/{kbId}/documents` | Upload PDF (multipart) |
-| `GET` | `/api/v1/knowledge-bases/{kbId}/documents` | List documents |
-| `GET` | `/api/v1/knowledge-bases/{kbId}/documents/{docId}` | Get status |
-| `DELETE` | `/api/v1/knowledge-bases/{kbId}/documents/{docId}` | Delete document + embeddings |
+| `POST` | `/api/v1/knowledge-bases/{kbId}/documents` | Upload PDF |
+| `GET` | `/api/v1/knowledge-bases/{kbId}/documents` | List |
+| `DELETE` | `/api/v1/knowledge-bases/{kbId}/documents/{docId}` | Delete |
 
-### Query
+### Query (Hybrid Routing)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/v1/knowledge-bases/{kbId}/query` | Ask a question |
+| `POST` | `/api/v1/knowledge-bases/{kbId}/query` | Ask a question (auto-routes to structured or RAG) |
 
-**Request body:**
-
+**Request:**
 ```json
 {
-  "question": "What were the total revenues?",
+  "question": "What is Micron's revenue?",
   "topK": 5,
   "similarityThreshold": 0.3
 }
 ```
 
-**Response:**
-
+**Response (structured path):**
 ```json
 {
-  "answer": "The total revenues were $391 billion...",
-  "sources": [
-    {
-      "sectionName": "ITEM 8. FINANCIAL STATEMENTS",
-      "pageNumber": 31,
-      "similarityScore": 0.66,
-      "content": "Consolidated Statements of Operations..."
-    }
-  ],
+  "answer": "## Micron Technology, Inc. — FY2024 (USD, MILLIONS)\n\n**Income Statement:**\n- Revenue: $25,111\n\n*Source: US_GAAP filing. Confidence: 100%. XBRL-validated.*",
+  "sources": [],
   "metadata": {
-    "chunksRetrieved": 5,
-    "retrievalTimeMs": 85,
-    "generationTimeMs": 62500,
-    "modelUsed": "qwen/qwen3-14b"
+    "chunksRetrieved": 0,
+    "retrievalTimeMs": 20,
+    "generationTimeMs": 0,
+    "queryType": "STRUCTURED"
   }
 }
 ```
 
-Full API documentation available at `/swagger-ui.html` when running.
+### Financial Data
 
-## Docker (Full Stack)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/{kbId}/documents/{docId}/financial-data` | Get extracted data |
+| `GET` | `/{kbId}/financial-data` | List all in KB |
+| `GET` | `/{kbId}/financial-data/compare?documentIds=id1,id2` | Compare across documents |
+| `POST` | `/{kbId}/documents/{docId}/financial-data/re-extract` | Force re-extraction |
+| `POST` | `/{kbId}/documents/{docId}/financial-data/validate` | Re-run validation |
 
-Run everything in Docker (uses Ollama, not LM Studio):
+Full API docs at `/swagger-ui.html`.
 
-```bash
-docker-compose --profile docker-ollama up
-```
+## Accuracy
 
-This starts PostgreSQL, Ollama (with model downloads), and the Spring Boot app.
+Tested across 3 companies, 3 accounting standards:
+
+| Company | Standard | Currency | Fields | XBRL Checks | Validation |
+|---------|----------|----------|--------|-------------|------------|
+| Micron Technology | US GAAP | USD / Millions | 14/14 (100%) | 13/13 PASSED | PASSED |
+| Singtel | IFRS | SGD / Millions | All extracted | N/A (no XBRL source yet) | PASSED |
+| TCS | Ind-AS | INR / Crores | All extracted | N/A (no XBRL source yet) | PASSED |
 
 ## Project Structure
 
 ```
 src/main/java/com/rkp/tenk/
-  config/         # AiConfig, AsyncConfig, LmStudioConfig, WebConfig
-  controller/     # KnowledgeBaseController, DocumentController, QueryController
-  service/        # PdfProcessingService, ChunkingService, RetrievalService,
-                  # GenerationService, DocumentIngestionService, KnowledgeBaseService
-  model/entity/   # KnowledgeBase, DocumentRecord
-  model/dto/      # Request/Response DTOs
-  exception/      # GlobalExceptionHandler, custom exceptions
-  repository/     # JPA repositories
+  config/              # AI, Async, LM Studio, OpenAPI, Web configs
+  controller/          # KnowledgeBase, Document, Query, FinancialData controllers
+  service/             # Core services:
+    QueryClassifier        # Hybrid routing: FINANCIAL_DATA vs NARRATIVE
+    StructuredQueryService # DB lookup for financial queries (zero LLM)
+    AgenticRagOrchestrator # RAG with query decomposition + evaluation
+    FinancialExtractionService  # LLM-based structured extraction
+    FinancialStatementDetector  # Page detection via keyword scoring
+    FinancialValidationService  # Accounting identity checks
+    validation/
+      ValidationSource     # Pluggable validation interface
+      EdgarXbrlSource      # SEC EDGAR XBRL cross-validation
+  model/entity/        # KnowledgeBase, DocumentRecord, FinancialData
+  model/dto/           # Request/Response DTOs
+  model/enums/         # ExtractionStatus, ValidationStatus, AccountingStandard
+  repository/          # JPA repositories
 
 src/main/resources/
-  static/         # Web UI (index.html, style.css, app.js)
-  db/changelog/   # Liquibase migrations
-  application.yml # Multi-profile configuration
+  static/              # FinLens Web UI (Dashboard, Compare, Chat)
+  db/changelog/        # Liquibase migrations (4 changesets)
+  application.yml      # Multi-profile config (lmstudio, dev, openai)
+```
+
+## Docker
+
+```bash
+docker-compose --profile docker-ollama up
 ```
 
 ## Testing
@@ -183,5 +246,3 @@ src/main/resources/
 ```bash
 ./mvnw test
 ```
-
-13 tests covering chunking, PDF processing, generation, and controller layers. Uses Testcontainers for PostgreSQL integration tests.

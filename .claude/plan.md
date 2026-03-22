@@ -17,29 +17,31 @@
 - [x] OpenAI integration — validated 93%+ accuracy with gpt-4o-mini
 - [x] Bug fixes — @Async+@Transactional stuck processing, context overflow, null byte sanitization
 
-## Phase 2: MVP — Accuracy, Re-extract & EDGAR Validation (CURRENT)
+## Phase 2: MVP — Accuracy, Re-extract & EDGAR Validation (DONE)
 
 ### 2A: Store PDF bytes + Re-extract endpoint
-- [ ] Add `pdf_content` BYTEA column to `document_record` table (or file system storage)
-- [ ] Save original PDF bytes during ingestion
-- [ ] Implement working `/re-extract` endpoint that reads stored PDF, re-detects pages, re-runs LLM extraction
+- [x] Add `pdf_content` BYTEA column to `document_record` table (Liquibase migration 004)
+- [x] Save original PDF bytes during ingestion (`DocumentIngestionService.initiateIngestion`)
+- [x] Implement working `/re-extract` endpoint that reads stored PDF, re-detects pages, re-runs LLM extraction
 
 ### 2B: EDGAR XBRL Cross-Validation (US)
-- [ ] `ValidationSource` interface — pluggable architecture for external validation sources
-- [ ] `EdgarXbrlSource` — fetch company facts from SEC EDGAR API (`data.sec.gov/api/xbrl/companyfacts/CIK.json`)
-- [ ] CIK resolver — map company name or ticker to SEC CIK number
-- [ ] XBRL tag → our schema field mapping (e.g., `us-gaap:AccountsReceivableNetCurrent` → `tradeReceivables`)
-- [ ] Cross-validation engine — compare LLM-extracted values against XBRL, produce discrepancy report
-- [ ] Auto-correct option — when XBRL value exists and differs from LLM extraction, flag and optionally override
-- [ ] Composite confidence score — blend LLM confidence + XBRL match percentage
+- [x] `ValidationSource` interface — pluggable architecture for external validation sources
+- [x] `EdgarXbrlSource` — fetch company facts from SEC EDGAR API (`data.sec.gov/api/xbrl/companyfacts/CIK.json`)
+- [x] CIK resolver — map company name or ticker to SEC CIK number (fuzzy match with suffix stripping)
+- [x] XBRL tag → our schema field mapping (13 fields, multiple fallback tags per field)
+- [x] Cross-validation engine — compare LLM-extracted values against XBRL, produce discrepancy report
+- [x] Mismatch detection — detects scaling errors, parent vs sub-line mismatches, value differences
+- [ ] Auto-correct option — when XBRL value exists and differs, optionally override (deferred to Phase 3)
+- [ ] Composite confidence score — blend LLM confidence + XBRL match percentage (deferred)
 
 ### 2C: Trade receivables disambiguation
-- [ ] Refine prompt to better distinguish sub-line vs parent line items
-- [ ] If EDGAR XBRL available, use XBRL value as ground truth (may auto-fix this)
+- [x] Refine prompt — "NOTES OVERRIDE BALANCE SHEET" instruction for narrowest sub-line preference
+- [x] Verified: Micron tradeReceivables 5,419 ✅ (was 6,615), tradePayables 2,726 ✅ (was 7,299)
+- [x] 14/14 fields correct, 13/13 XBRL checks PASSED for Micron
 
 ### 2D: Non-MVP (deferred)
-- Telecom costOfSales — null is correct behavior, document it
-- Profile-aware vector dimensions — internal tooling, not product
+- [x] Unified embedding dimensions — OpenAI profile now uses 768 dims to match LM Studio
+- Telecom costOfSales — null is correct behavior for non-COGS industries, document it
 
 ## Phase 3: India & Singapore Validation Sources
 
@@ -107,9 +109,9 @@ ValidationSource (interface)
 
 | Company | Country | Standard | Currency | Unit | Extraction | Validation V1 | Validation V2 (XBRL) |
 |---------|---------|----------|----------|------|------------|---------------|----------------------|
-| Micron Technology | US | US GAAP | USD | MILLIONS | 93% (OpenAI) | PASSED | Pending (EDGAR) |
-| Singtel | Singapore | IFRS | SGD | MILLIONS | COMPLETED | PASSED | Pending (CRIF) |
-| TCS | India | Ind-AS | INR | CRORES | COMPLETED | PASSED | Pending (NSE) |
+| Micron Technology | US | US GAAP | USD | MILLIONS | 100% (14/14) | PASSED | PASSED (13/13 EDGAR) |
+| Singtel | Singapore | IFRS | SGD | MILLIONS | COMPLETED | PASSED | Pending (Phase 3) |
+| TCS | India | Ind-AS | INR | CRORES | COMPLETED | PASSED | Pending (Phase 3) |
 
 ## Architecture Decisions
 
