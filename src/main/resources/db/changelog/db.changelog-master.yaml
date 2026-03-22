@@ -5,3 +5,5 @@ databaseChangeLog:
       file: db/changelog/changes/001-create-knowledge-base.yaml
   - include:
       file: db/changelog/changes/002-create-document-record.yaml
+  - include:
+      file: db/changelog/changes/003-create-financial-data.yaml

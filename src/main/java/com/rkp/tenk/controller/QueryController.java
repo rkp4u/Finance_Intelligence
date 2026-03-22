@@ -32,7 +32,7 @@ public class QueryController {
     private final KnowledgeBaseService knowledgeBaseService;
     private final AgenticRagOrchestrator orchestrator;
 
-    @Value("${spring.ai.ollama.chat.model:unknown}")
+    @Value("${app.model-name:unknown}")
     private String modelName;
 
     @PostMapping

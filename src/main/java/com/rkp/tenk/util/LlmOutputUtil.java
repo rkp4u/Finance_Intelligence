@@ -11,16 +11,23 @@ import java.util.regex.Pattern;
 public class LlmOutputUtil {
 
     private static final Pattern THINKING_BLOCK = Pattern.compile("(?s)<think>.*?</think>\\s*");
+    private static final Pattern ORPHANED_THINK_CLOSE = Pattern.compile("(?s)^.*?</think>\\s*");
     private static final Pattern JSON_ARRAY = Pattern.compile("\\[.*]", Pattern.DOTALL);
     private static final Pattern JSON_OBJECT = Pattern.compile("\\{.*}", Pattern.DOTALL);
     private static final Pattern CODE_FENCE = Pattern.compile("```(?:json)?\\s*(.*?)\\s*```", Pattern.DOTALL);
 
     /**
      * Strip {@code <think>...</think>} blocks from Qwen 3 model output.
+     * Also handles orphaned {@code </think>} closing tags (when opening tag was truncated).
      */
     public String stripThinkingBlock(String response) {
         if (response == null) return "";
-        return THINKING_BLOCK.matcher(response).replaceAll("").trim();
+        String result = THINKING_BLOCK.matcher(response).replaceAll("").trim();
+        // Handle orphaned </think> (no matching <think> open tag)
+        if (result.contains("</think>") && !result.contains("<think>")) {
+            result = ORPHANED_THINK_CLOSE.matcher(result).replaceAll("").trim();
+        }
+        return result;
     }
 
     /**

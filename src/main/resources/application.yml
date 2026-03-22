@@ -1,3 +1,6 @@
+app:
+  model-name: unknown
+
 spring:
   application:
     name: tenk-rag
@@ -61,7 +64,14 @@ rag:
     enabled: false
     max-evaluation-retries: 1
 
+financial-extraction:
+  enabled: true
+  validation-tolerance-percent: 1.0
+  max-pages-per-statement: 3
+
 ---
+app:
+  model-name: qwen3:14b
 spring:
   config:
     activate:
@@ -85,6 +95,8 @@ spring:
 ---
 # LM Studio profile - runs models locally via OpenAI-compatible API
 # Start LM Studio, load a chat model + embedding model, enable server on port 1234
+app:
+  model-name: qwen3-14b-claude-4.5-opus-high-reasoning-distill
 spring:
   config:
     activate:
@@ -111,6 +123,8 @@ spring:
 
 ---
 # OpenAI Cloud profile - uses real OpenAI API
+app:
+  model-name: gpt-4o-mini
 spring:
   config:
     activate:

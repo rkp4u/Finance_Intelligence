@@ -33,6 +33,7 @@ public class DocumentIngestionService {
     private final ChunkingService chunkingService;
     private final VectorStore vectorStore;
     private final DocumentRecordRepository documentRecordRepository;
+    private final FinancialExtractionService financialExtractionService;
 
     /**
      * Create a document record and start async processing.
@@ -111,6 +112,14 @@ public class DocumentIngestionService {
 
             log.info("Document processing complete: id={}, chunks={}, pages={}, language={}",
                     documentRecordId, chunks.size(), record.getTotalPages(), language);
+
+            // Trigger structured financial extraction (non-blocking — failure doesn't affect RAG pipeline)
+            try {
+                financialExtractionService.extractAndStore(pages, documentRecordId, knowledgeBaseId);
+            } catch (Exception extractionEx) {
+                log.warn("Financial extraction failed for document {}, RAG pipeline unaffected",
+                        documentRecordId, extractionEx);
+            }
 
         } catch (Exception e) {
             log.error("Document processing failed: id={}", documentRecordId, e);
