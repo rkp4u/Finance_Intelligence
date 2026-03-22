@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-add-pdf-content-to-document-record
+      author: rkp
+      changes:
+        - addColumn:
+            tableName: document_record
+            columns:
+              - column:
+                  name: pdf_content
+                  type: bytea
+                  remarks: "Original PDF bytes for re-extraction without re-upload"

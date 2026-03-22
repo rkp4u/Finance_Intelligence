@@ -3,6 +3,7 @@ package com.rkp.tenk.service;
 import com.rkp.tenk.model.dto.ValidationCheckResult;
 import com.rkp.tenk.model.entity.FinancialData;
 import com.rkp.tenk.model.enums.ValidationStatus;
+import com.rkp.tenk.service.validation.ValidationSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -13,7 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Validates extracted financial data using accounting identity checks.
+ * Validates extracted financial data using accounting identity checks
+ * and pluggable external validation sources (EDGAR XBRL, etc.).
  */
 @Service
 @Slf4j
@@ -21,6 +23,15 @@ public class FinancialValidationService {
 
     @Value("${financial-extraction.validation-tolerance-percent:1.0}")
     private double tolerancePercent;
+
+    private final List<ValidationSource> externalSources;
+
+    public FinancialValidationService(List<ValidationSource> externalSources) {
+        this.externalSources = externalSources;
+        log.info("Registered {} external validation sources: {}",
+                externalSources.size(),
+                externalSources.stream().map(ValidationSource::sourceId).toList());
+    }
 
     /**
      * Run all validation checks on the extracted financial data.
@@ -154,6 +165,20 @@ public class FinancialValidationService {
                     passed ? "Revenue is non-negative" : "Revenue is negative",
                     "WARNING"
             ));
+        }
+
+        // Run external validation sources (EDGAR XBRL, etc.)
+        for (ValidationSource source : externalSources) {
+            if (source.supports(data)) {
+                try {
+                    log.info("Running external validation: {}", source.sourceId());
+                    List<ValidationCheckResult> externalChecks = source.validate(data);
+                    checks.addAll(externalChecks);
+                    log.info("External validation {} returned {} checks", source.sourceId(), externalChecks.size());
+                } catch (Exception e) {
+                    log.warn("External validation source {} failed: {}", source.sourceId(), e.getMessage());
+                }
+            }
         }
 
         // Determine aggregate status

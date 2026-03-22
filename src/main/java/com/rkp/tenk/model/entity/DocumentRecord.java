@@ -51,6 +51,10 @@ public class DocumentRecord {
     @Column(name = "error_message")
     private String errorMessage;
 
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name = "pdf_content")
+    private byte[] pdfContent;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

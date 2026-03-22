@@ -50,6 +50,11 @@ public class DocumentIngestionService {
         record.setOriginalFilename(file.getOriginalFilename());
         record.setFileSize(file.getSize());
         record.setStatus(DocumentStatus.PROCESSING);
+        try {
+            record.setPdfContent(file.getBytes());
+        } catch (IOException e) {
+            log.warn("Could not store PDF bytes for re-extraction: {}", e.getMessage());
+        }
 
         record = documentRecordRepository.save(record);
         log.info("Created document record: id={}, filename={}", record.getId(), file.getOriginalFilename());

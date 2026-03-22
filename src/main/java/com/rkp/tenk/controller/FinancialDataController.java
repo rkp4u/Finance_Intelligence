@@ -21,6 +21,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.document.Document;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -110,17 +113,32 @@ public class FinancialDataController {
             return ResponseEntity.badRequest().build();
         }
 
+        if (docRecord.getPdfContent() == null) {
+            log.warn("No stored PDF bytes for document {}. Re-upload required.", docId);
+            return ResponseEntity.unprocessableEntity().build();
+        }
+
         // Delete existing financial data if present
         financialDataRepository.findByDocumentRecordId(docId)
                 .ifPresent(financialDataRepository::delete);
 
-        // Re-read the PDF and extract (we need the original pages)
-        // For now, we can't re-extract without the original PDF bytes.
-        // This endpoint triggers extraction using stored vectors' source pages.
-        // TODO: implement full re-extraction from stored PDF
-        log.info("Re-extraction requested for document {}. Delete old data and re-upload to re-extract.", docId);
+        // Re-read the PDF from stored bytes and run extraction
+        String originalFilename = docRecord.getOriginalFilename();
+        Resource pdfResource = new ByteArrayResource(docRecord.getPdfContent()) {
+            @Override
+            public String getFilename() {
+                return originalFilename;
+            }
+        };
 
-        return ResponseEntity.accepted().build();
+        List<Document> pages = pdfProcessingService.extractText(pdfResource);
+        financialExtractionService.extractAndStore(pages, docId, kbId);
+
+        FinancialData result = financialDataRepository.findByDocumentRecordId(docId)
+                .orElseThrow(() -> new ResourceNotFoundException("FinancialData", docId));
+
+        log.info("Re-extraction completed for document {}: status={}", docId, result.getExtractionStatus());
+        return ResponseEntity.ok(toResponse(result));
     }
 
     @GetMapping("/financial-data")

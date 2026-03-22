@@ -107,9 +107,14 @@ public class FinancialExtractionService {
 
             %s
 
-            IMPORTANT: If the notes provide a breakdown of receivables or payables into
-            sub-categories (e.g., "Trade receivables" vs "Other receivables"), use the
-            narrower "Trade receivables" or "Accounts payable" value, NOT the aggregated total.
+            IMPORTANT — NOTES OVERRIDE BALANCE SHEET for tradeReceivables and tradePayables:
+            1. First check the NOTES section for a breakdown of receivables/payables.
+            2. If the notes show sub-lines like "Trade receivables: 5,419" and "Other: 1,196"
+               totaling "Receivables: 6,615", use the NARROW sub-line value (5,419), NOT the total (6,615).
+            3. The balance sheet often shows only the aggregated total. The notes show the breakdown.
+               Always prefer the notes breakdown value over the balance sheet total.
+            4. Same rule applies to payables: use "Trade payables" or "Accounts payable" from notes,
+               NOT "Accounts payable and accrued expenses" from the balance sheet.
 
             Return the JSON extraction only.
             """;

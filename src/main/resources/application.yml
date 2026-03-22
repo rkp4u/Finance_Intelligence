@@ -142,6 +142,7 @@ spring:
       embedding:
         options:
           model: text-embedding-3-small
+          dimensions: 768
     vectorstore:
       pgvector:
-        dimensions: 1536
+        dimensions: 768
