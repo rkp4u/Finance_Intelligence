@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "spring-boot-app",
-      "runtimeExecutable": "./mvnw",
-      "runtimeArgs": ["spring-boot:run", "-Dspring-boot.run.profiles=lmstudio", "-Dspring-boot.run.jvmArguments=-DRAG_AGENTIC_ENABLED=true"],
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "source .env 2>/dev/null; export OPENAI_API_KEY; ./mvnw spring-boot:run -Dspring-boot.run.profiles=openai -Dspring-boot.run.jvmArguments='-DRAG_AGENTIC_ENABLED=true'"],
       "port": 8080,
       "autoPort": false
     },
