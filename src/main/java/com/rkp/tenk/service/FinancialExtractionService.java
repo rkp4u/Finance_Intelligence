@@ -36,7 +36,10 @@ import java.util.UUID;
 @Slf4j
 public class FinancialExtractionService {
 
-    private static final String SYSTEM_PROMPT = """
+    /**
+     * System prompt used when input is raw PDFBox text (columns may be misaligned).
+     */
+    private static final String SYSTEM_PROMPT_RAW = """
             You are a financial data extraction specialist. Extract structured financial
             data from the provided financial statement text. The text comes from an
             annual report filing and may have formatting issues from PDF extraction
@@ -73,6 +76,8 @@ public class FinancialExtractionService {
               * "Trade payables" / "Accounts payable" (NOT total payables or accrued expenses) -> tradePayables
               * "Cash and cash equivalents" / "Cash and bank balances" -> cashAndEquivalents
             - Return ONLY valid JSON in the exact schema below. No other text.
+            - The input may contain Markdown table formatting (pipe-delimited rows) — read
+              these as structured tables where each column corresponds to a year or label.
 
             {
               "companyName": "string",
@@ -98,8 +103,16 @@ public class FinancialExtractionService {
             }
             """;
 
+    /**
+     * Single user prompt template used for both PDFBox and Docling paths.
+     * Each section is labeled so the LLM knows which table is the balance sheet vs income statement.
+     * When Docling is enabled, the section text contains pipe-delimited Markdown tables;
+     * when disabled, it contains raw PDFBox text. The instructions cover both cases.
+     */
     private static final String USER_PROMPT_TEMPLATE = """
             Extract financial data from the following financial statements.
+            Each section is labeled. Sections may contain raw text or structured Markdown tables
+            (pipe-delimited) — read both accurately.
 
             %s
 
@@ -115,6 +128,8 @@ public class FinancialExtractionService {
                Always prefer the notes breakdown value over the balance sheet total.
             4. Same rule applies to payables: use "Trade payables" or "Accounts payable" from notes,
                NOT "Accounts payable and accrued expenses" from the balance sheet.
+            5. For Markdown tables: the leftmost data column is the most recent fiscal year.
+               If a row is a subtotal/net (value equals sum of rows above), use the sub-lines instead.
 
             Return the JSON extraction only.
             """;
@@ -124,6 +139,7 @@ public class FinancialExtractionService {
     private final LlmOutputUtil llmOutputUtil;
     private final FinancialStatementDetector detector;
     private final FinancialValidationService validationService;
+    private final DoclingTableService doclingTableService;
     private final FinancialDataRepository financialDataRepository;
     private final DocumentRecordRepository documentRecordRepository;
 
@@ -135,8 +151,14 @@ public class FinancialExtractionService {
 
     /**
      * Main entry point: detect financial pages, extract data via LLM, validate, and persist.
+     *
+     * @param pages          one {@link Document} per PDF page (from PagePdfDocumentReader)
+     * @param documentId     the persisted DocumentRecord UUID
+     * @param knowledgeBaseId the KB this document belongs to
+     * @param pdfBytes       raw PDF bytes for optional Docling enrichment (may be null)
      */
-    public void extractAndStore(List<Document> pages, UUID documentId, UUID knowledgeBaseId) {
+    public void extractAndStore(List<Document> pages, UUID documentId, UUID knowledgeBaseId,
+                                byte[] pdfBytes) {
         if (!extractionEnabled) {
             log.info("Financial extraction disabled, skipping for document {}", documentId);
             return;
@@ -176,15 +198,28 @@ public class FinancialExtractionService {
                 return;
             }
 
-            // Step 2: Build the prompt with detected page text
-            String balanceSheetSection = fsPages.balanceSheetText() != null
-                    ? "BALANCE SHEET / STATEMENT OF FINANCIAL POSITION:\n" + fsPages.balanceSheetText()
+            // Step 1b: Optionally enrich each section with Docling structured tables.
+            // Falls back to PDFBox text per-section if Docling is disabled or fails.
+            fsPages = doclingTableService.enrich(fsPages, pdfBytes);
+
+            // Step 2: Build the 3-section labeled prompt using the best available text per section.
+            // effective*Text() returns Docling markdown when available, raw PDFBox otherwise.
+            if (fsPages.hasAnyEnrichedText()) {
+                log.info("Using Docling-enriched text for document {} (BS={}, IS={}, Notes={})",
+                        documentId,
+                        fsPages.enrichedBalanceSheetText() != null ? "enriched" : "PDFBox",
+                        fsPages.enrichedIncomeStatementText() != null ? "enriched" : "PDFBox",
+                        fsPages.enrichedNotesText() != null ? "enriched" : "PDFBox");
+            }
+
+            String balanceSheetSection = fsPages.effectiveBalanceSheetText() != null
+                    ? "BALANCE SHEET / STATEMENT OF FINANCIAL POSITION:\n" + fsPages.effectiveBalanceSheetText()
                     : "BALANCE SHEET: Not found in document.";
-            String incomeStatementSection = fsPages.incomeStatementText() != null
-                    ? "INCOME STATEMENT / STATEMENT OF OPERATIONS:\n" + fsPages.incomeStatementText()
+            String incomeStatementSection = fsPages.effectiveIncomeStatementText() != null
+                    ? "INCOME STATEMENT / STATEMENT OF OPERATIONS:\n" + fsPages.effectiveIncomeStatementText()
                     : "INCOME STATEMENT: Not found in document.";
-            String notesSection = fsPages.notesText() != null
-                    ? "NOTES TO FINANCIAL STATEMENTS (receivables/payables breakdowns):\n" + fsPages.notesText()
+            String notesSection = fsPages.effectiveNotesText() != null
+                    ? "NOTES TO FINANCIAL STATEMENTS (receivables/payables breakdowns):\n" + fsPages.effectiveNotesText()
                     : "";
 
             String userPrompt = USER_PROMPT_TEMPLATE.formatted(
@@ -193,7 +228,7 @@ public class FinancialExtractionService {
             // Step 3: Call LLM
             long start = System.currentTimeMillis();
             String rawResponse = chatClient.prompt()
-                    .system(SYSTEM_PROMPT)
+                    .system(SYSTEM_PROMPT_RAW)
                     .user(userPrompt)
                     .call()
                     .content();

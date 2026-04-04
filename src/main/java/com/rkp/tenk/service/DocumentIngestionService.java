@@ -120,7 +120,7 @@ public class DocumentIngestionService {
 
             // Trigger structured financial extraction (non-blocking — failure doesn't affect RAG pipeline)
             try {
-                financialExtractionService.extractAndStore(pages, documentRecordId, knowledgeBaseId);
+                financialExtractionService.extractAndStore(pages, documentRecordId, knowledgeBaseId, fileBytes);
             } catch (Exception extractionEx) {
                 log.warn("Financial extraction failed for document {}, RAG pipeline unaffected",
                         documentRecordId, extractionEx);

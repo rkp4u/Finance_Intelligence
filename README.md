@@ -79,7 +79,8 @@ PDF Upload
 | LLM (cloud) | GPT-4o-mini via OpenAI API |
 | Embeddings | nomic-embed-text v1.5 (768 dims) |
 | Vector Store | PostgreSQL 16 + pgvector (HNSW) |
-| PDF Parsing | Apache PDFBox |
+| PDF Parsing | Apache PDFBox (primary) |
+| Table Extraction | Docling Serve — IBM TableFormer ML (optional, disabled by default) |
 | Migrations | Liquibase |
 | API Docs | SpringDoc OpenAPI (Swagger UI) |
 | Java | 17+ |
@@ -202,17 +203,21 @@ Full API docs at `/swagger-ui.html`.
 
 Tested across 3 companies, 3 accounting standards:
 
-| Company | Standard | Currency | Fields | XBRL Checks | Validation |
-|---------|----------|----------|--------|-------------|------------|
-| Micron Technology | US GAAP | USD / Millions | 14/14 (100%) | 13/13 PASSED | PASSED |
-| Singtel | IFRS | SGD / Millions | All extracted | N/A (no XBRL source yet) | PASSED |
-| TCS | Ind-AS | INR / Crores | All extracted | N/A (no XBRL source yet) | PASSED |
+Tested on 3 companies × 3 accounting standards using gpt-4o-mini:
+
+| Company | Standard | Currency | Fields (14 total) | XBRL Checks | Validation |
+|---------|----------|----------|-------------------|-------------|------------|
+| Micron Technology | US GAAP | USD / Millions | 14/14 (100%) | 12/13 (tradeReceivables off by 3.7%) | WARNINGS |
+| Singtel | IFRS | SGD / Millions | 12/14 (costOfSales, grossProfit null — not in filing format) | N/A | PASSED |
+| TCS | Ind-AS | INR / Crores | 13/14 (grossProfit null) | N/A | PASSED |
 
 ## Project Structure
 
 ```
 src/main/java/com/rkp/tenk/
   config/              # AI, Async, LM Studio, OpenAPI, Web configs
+    DoclingConfig          # @EnableConfigurationProperties for Docling
+    DoclingProperties      # @ConfigurationProperties(prefix = "docling")
   controller/          # KnowledgeBase, Document, Query, FinancialData controllers
   service/             # Core services:
     QueryClassifier        # Hybrid routing: FINANCIAL_DATA vs NARRATIVE
@@ -221,16 +226,18 @@ src/main/java/com/rkp/tenk/
     FinancialExtractionService  # LLM-based structured extraction
     FinancialStatementDetector  # Page detection via keyword scoring
     FinancialValidationService  # Accounting identity checks
+    DoclingTableService    # Optional per-section table enrichment (disabled by default)
     validation/
       ValidationSource     # Pluggable validation interface
       EdgarXbrlSource      # SEC EDGAR XBRL cross-validation
   model/entity/        # KnowledgeBase, DocumentRecord, FinancialData
   model/dto/           # Request/Response DTOs
+    FinancialStatementPages  # Detected pages with per-section effective*Text() fallback
   model/enums/         # ExtractionStatus, ValidationStatus, AccountingStandard
   repository/          # JPA repositories
 
 src/main/resources/
-  static/              # FinLens Web UI (Dashboard, Compare, Chat)
+  static/              # FinLens Web UI (Dashboard, Compare, Chat) + roadmap.html
   db/changelog/        # Liquibase migrations (4 changesets)
   application.yml      # Multi-profile config (lmstudio, dev, openai)
 ```
@@ -238,7 +245,49 @@ src/main/resources/
 ## Docker
 
 ```bash
-docker-compose --profile docker-ollama up
+# PostgreSQL only (default)
+docker compose up -d postgres
+
+# PostgreSQL + Ollama (for dev profile)
+docker compose --profile docker-ollama up
+
+# PostgreSQL + Docling Serve (optional table extraction enhancement)
+docker compose --profile docling up -d docling-serve
+```
+
+## Docling Table Extraction (Optional)
+
+Docling integrates IBM's [TableFormer ML model](https://github.com/DS4SD/docling) for structured table extraction. It is **disabled by default** — PDFBox handles all extraction unless you explicitly opt in.
+
+**When to use Docling:**
+- Poor-quality or scanned PDFs where PDFBox loses column alignment
+- Complex multi-column table layouts
+- Non-standard filing formats (not SEC 10-K machine PDFs)
+
+**When NOT to use Docling:**
+- Standard SEC 10-K filings (machine-generated PDFs — PDFBox reads them at ~95% fidelity)
+- Evaluation on Micron, Singtel, TCS showed +1 field across 42 slots — not worth the overhead
+
+**To enable:**
+```bash
+# 1. Start Docling Serve
+docker compose --profile docling up -d docling-serve
+
+# 2. Enable in config (or pass as JVM arg)
+# application.yml: docling.enabled: true
+./mvnw spring-boot:run -Dspring-boot.run.profiles=lmstudio \
+  -Dspring-boot.run.jvmArguments="-Ddocling.enabled=true"
+```
+
+The integration calls Docling **per section** (balance sheet, income statement, notes separately) to preserve the 3-section prompt structure. Each section falls back to PDFBox independently if Docling fails.
+
+**Config:**
+```yaml
+docling:
+  enabled: false              # opt-in
+  base-url: http://localhost:5001
+  timeout-seconds: 60
+  max-pages-per-request: 10  # per section
 ```
 
 ## Testing

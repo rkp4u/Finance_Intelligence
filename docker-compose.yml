@@ -15,6 +15,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # Docling Serve - IBM's document intelligence service with TableFormer ML model.
+  # Provides 94-98% accurate table extraction vs ~68% for rule-based extractors.
+  # Start with: docker compose --profile docling up docling-serve
+  # Then set docling.enabled: true in application.yml
+  docling-serve:
+    image: quay.io/docling-project/docling-serve-cpu:latest
+    ports:
+      - "5001:5001"
+    environment:
+      DOCLING_SERVE_HOST: "0.0.0.0"
+      DOCLING_SERVE_PORT: "5001"
+      DOCLING_SERVE_WORKERS: "2"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5001/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    profiles:
+      - docling
+
   # Ollama service - only needed if NOT running Ollama natively.
   # For best performance on Apple Silicon, run Ollama natively:
   #   brew install ollama

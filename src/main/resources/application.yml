@@ -2,6 +2,8 @@ app:
   model-name: unknown
 
 spring:
+  profiles:
+    active: lmstudio
   application:
     name: tenk-rag
 
@@ -68,6 +70,15 @@ financial-extraction:
   enabled: true
   validation-tolerance-percent: 1.0
   max-pages-per-statement: 3
+
+# Docling Serve integration for structured table extraction.
+# Set enabled: true and start Docling Serve (docker compose --profile docling up)
+# to use IBM's TableFormer ML model instead of raw PDFBox text.
+docling:
+  enabled: false
+  base-url: http://localhost:5001
+  timeout-seconds: 60
+  max-pages-per-request: 10
 
 ---
 app:

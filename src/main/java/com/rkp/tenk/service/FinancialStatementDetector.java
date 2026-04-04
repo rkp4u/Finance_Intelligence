@@ -166,7 +166,7 @@ public class FinancialStatementDetector {
                 bsPageNums, isPageNums, ntPageNums, detectedStandard);
 
         return new FinancialStatementPages(bsText, bsPageNums, isText, isPageNums,
-                ntText, ntPageNums, detectedStandard, hasFinancialStatements);
+                ntText, ntPageNums, detectedStandard, hasFinancialStatements, null, null, null);
     }
 
     private int scoreText(String lowerText, List<String> keywords) {

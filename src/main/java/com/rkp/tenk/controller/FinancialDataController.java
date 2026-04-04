@@ -132,7 +132,7 @@ public class FinancialDataController {
         };
 
         List<Document> pages = pdfProcessingService.extractText(pdfResource);
-        financialExtractionService.extractAndStore(pages, docId, kbId);
+        financialExtractionService.extractAndStore(pages, docId, kbId, docRecord.getPdfContent());
 
         FinancialData result = financialDataRepository.findByDocumentRecordId(docId)
                 .orElseThrow(() -> new ResourceNotFoundException("FinancialData", docId));

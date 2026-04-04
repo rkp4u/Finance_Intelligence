@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinLens — Dual Scope Roadmap</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --bg: #09090b; --bg-subtle: #0f0f13;
+    --surface: rgba(255,255,255,0.03); --surface-raised: rgba(255,255,255,0.05);
+    --surface-glass: rgba(255,255,255,0.04); --surface-glass-border: rgba(255,255,255,0.06);
+    --surface-hover: rgba(255,255,255,0.07);
+    --text: #fafafa; --text-secondary: #a1a1aa; --text-tertiary: #71717a; --text-ghost: #3f3f46;
+    --accent: #8b5cf6; --accent-soft: rgba(139,92,246,0.1); --accent-border: rgba(139,92,246,0.2);
+    --green: #10b981; --green-soft: rgba(16,185,129,0.1);
+    --amber: #f59e0b; --amber-soft: rgba(245,158,11,0.1);
+    --red: #ef4444; --red-soft: rgba(239,68,68,0.1);
+    --blue: #3b82f6; --blue-soft: rgba(59,130,246,0.1);
+    --cyan: #06b6d4; --cyan-soft: rgba(6,182,212,0.1);
+    --orange: #f97316; --orange-soft: rgba(249,115,22,0.1);
+    --sans: 'DM Sans', -apple-system, sans-serif; --mono: 'JetBrains Mono', monospace;
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px; --s12: 48px;
+    --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px;
+}
+body { font-family: var(--sans); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+body::before { content: ''; position: fixed; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(ellipse at 20% 50%, rgba(139,92,246,0.06) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(16,185,129,0.04) 0%, transparent 50%), radial-gradient(ellipse at 50% 80%, rgba(249,115,22,0.03) 0%, transparent 50%); pointer-events: none; z-index: 0; }
+.container { max-width: 1280px; margin: 0 auto; padding: var(--s8) var(--s6); position: relative; z-index: 1; }
+.hero { text-align: center; padding: var(--s12) 0 var(--s8); }
+.hero h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: var(--s3); }
+.hero h1 .a { color: var(--orange); } .hero h1 .b { color: var(--accent); }
+.hero p { color: var(--text-secondary); font-size: 16px; max-width: 700px; margin: 0 auto; }
+
+/* Scope badges */
+.scope-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+.scope-a { background: var(--orange-soft); color: var(--orange); border: 1px solid rgba(249,115,22,0.2); }
+.scope-b { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border); }
+
+/* Toggle bar */
+.toggle-bar { display: flex; justify-content: center; gap: var(--s2); margin-bottom: var(--s8); position: sticky; top: var(--s4); z-index: 100; flex-wrap: wrap; }
+.toggle-btn { font-family: var(--sans); font-size: 13px; font-weight: 600; padding: var(--s3) var(--s5); border-radius: 100px; border: 1px solid var(--surface-glass-border); background: var(--surface-glass); backdrop-filter: blur(20px); color: var(--text-secondary); cursor: pointer; transition: all 0.25s ease; }
+.toggle-btn:hover { background: var(--surface-hover); color: var(--text); }
+.toggle-btn.active { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
+.toggle-btn.active-a { background: var(--orange-soft); border-color: rgba(249,115,22,0.3); color: var(--orange); }
+
+/* Sections */
+.view-section { display: none; animation: fadeUp 0.4s ease; }
+.view-section.active { display: block; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+.section-title { font-size: 22px; font-weight: 700; margin-bottom: var(--s6); letter-spacing: -0.3px; }
+.section-subtitle { color: var(--text-secondary); margin-bottom: var(--s8); font-size: 14px; }
+
+/* Cards */
+.card { background: var(--surface-glass); border: 1px solid var(--surface-glass-border); border-radius: var(--r-lg); padding: var(--s6); margin-bottom: var(--s6); backdrop-filter: blur(12px); transition: border-color 0.2s; }
+.card:hover { border-color: rgba(255,255,255,0.1); }
+.card-header { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s4); }
+.card-icon { width: 36px; height: 36px; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; font-weight: 700; }
+.card-title { font-size: 15px; font-weight: 600; }
+.card-desc { color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+
+/* Tags */
+.tag { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 11px; font-weight: 600; font-family: var(--mono); }
+.tag-green { background: var(--green-soft); color: var(--green); }
+.tag-red { background: var(--red-soft); color: var(--red); }
+.tag-amber { background: var(--amber-soft); color: var(--amber); }
+.tag-blue { background: var(--blue-soft); color: var(--blue); }
+.tag-accent { background: var(--accent-soft); color: var(--accent); }
+.tag-orange { background: var(--orange-soft); color: var(--orange); }
+
+/* Metrics */
+.metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s4); margin-bottom: var(--s8); }
+.metric-card { background: var(--surface-glass); border: 1px solid var(--surface-glass-border); border-radius: var(--r-md); padding: var(--s5); text-align: center; }
+.metric-value { font-size: 28px; font-weight: 700; font-family: var(--mono); }
+.metric-label { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: var(--s1); }
+.metric-change { font-size: 11px; margin-top: var(--s2); font-weight: 600; }
+
+/* Compare grid */
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s6); }
+.compare-col h3 { font-size: 14px; font-weight: 600; margin-bottom: var(--s4); display: flex; align-items: center; gap: var(--s2); }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot-red { background: var(--red); } .dot-green { background: var(--green); } .dot-orange { background: var(--orange); } .dot-accent { background: var(--accent); }
+
+/* Gap list */
+.gap-list { list-style: none; display: flex; flex-direction: column; gap: var(--s3); }
+.gap-item { display: flex; align-items: flex-start; gap: var(--s3); font-size: 13px; color: var(--text-secondary); }
+.gap-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; margin-top: 1px; }
+.gap-icon.miss { background: var(--red-soft); color: var(--red); }
+.gap-icon.gain { background: var(--green-soft); color: var(--green); }
+
+/* Flow steps */
+.flow { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; padding: var(--s3) 0; }
+.flow-step { background: var(--surface-raised); border: 1px solid var(--surface-glass-border); border-radius: var(--r-sm); padding: var(--s2) var(--s4); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.flow-step.current { border-color: var(--accent-border); color: var(--accent); }
+.flow-step.new-a { border-color: var(--orange); color: var(--orange); border-style: dashed; }
+.flow-step.new-b { border-color: var(--accent); color: var(--accent); border-style: dashed; }
+.flow-step.warn { border-color: var(--red); color: var(--red); }
+.flow-arrow { color: var(--text-ghost); font-size: 14px; }
+
+/* Schema table */
+.schema-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.schema-table th { text-align: left; padding: var(--s3) var(--s4); border-bottom: 1px solid var(--surface-glass-border); color: var(--text-tertiary); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.schema-table td { padding: var(--s3) var(--s4); border-bottom: 1px solid rgba(255,255,255,0.02); font-family: var(--mono); font-size: 12px; }
+.schema-table tr.added td { background: var(--green-soft); }
+.schema-table tr.modified td { background: var(--amber-soft); }
+
+/* Timeline */
+.timeline { position: relative; padding-left: 32px; }
+.timeline::before { content: ''; position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; background: linear-gradient(to bottom, var(--orange), var(--orange), var(--orange), transparent 48%, var(--accent) 52%, var(--accent), var(--accent), var(--accent)); border-radius: 2px; }
+.timeline-item { position: relative; margin-bottom: var(--s8); }
+.timeline-dot { position: absolute; left: -28px; top: 4px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--bg); }
+.timeline-phase { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: var(--s1); }
+.timeline-title { font-size: 16px; font-weight: 600; margin-bottom: var(--s2); }
+.timeline-desc { color: var(--text-secondary); font-size: 13px; margin-bottom: var(--s3); }
+.timeline-files { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+/* Health bars */
+.health-bar-group { margin-bottom: var(--s3); }
+.health-bar-label { font-size: 12px; color: var(--text-secondary); display: flex; justify-content: space-between; margin-bottom: var(--s1); }
+.health-bar { height: 6px; background: var(--surface-raised); border-radius: 3px; overflow: hidden; }
+.health-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+
+/* Query box */
+.query-flow-box { background: var(--surface); border: 1px solid var(--surface-glass-border); border-radius: var(--r-md); padding: var(--s5); }
+.query-flow-box h4 { font-size: 13px; font-weight: 600; margin-bottom: var(--s3); display: flex; align-items: center; gap: var(--s2); }
+.query-example { font-family: var(--mono); font-size: 12px; color: var(--accent); background: var(--accent-soft); padding: var(--s2) var(--s3); border-radius: var(--r-sm); margin-bottom: var(--s3); display: inline-block; }
+.query-result { font-size: 12px; color: var(--text-secondary); padding: var(--s3); background: var(--surface-raised); border-radius: var(--r-sm); font-family: var(--mono); line-height: 1.8; white-space: pre-line; }
+.query-result .num { color: var(--green); font-weight: 600; }
+.query-result .label { color: var(--text-tertiary); }
+
+/* Responsive */
+@media (max-width: 768px) { .compare-grid, .metrics-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Hero -->
+<div class="hero">
+    <h1>FinLens Roadmap: <span class="a">Scope A</span> + <span class="b">Scope B</span></h1>
+    <p>
+        <span class="scope-badge scope-a">A Extraction Hardening</span>
+        Make what we extract more accurate
+        &nbsp;&nbsp;
+        <span class="scope-badge scope-b">B Knowledge Architecture</span>
+        Make what we do with data smarter
+    </p>
+</div>
+
+<!-- Toggle -->
+<div class="toggle-bar">
+    <button class="toggle-btn active" data-view="overview">Overview</button>
+    <button class="toggle-btn" data-view="scope-a">Scope A: Extraction</button>
+    <button class="toggle-btn" data-view="scope-b">Scope B: Knowledge</button>
+    <button class="toggle-btn" data-view="pipeline">Pipeline Diff</button>
+    <button class="toggle-btn" data-view="query">Query Flow</button>
+    <button class="toggle-btn" data-view="health">Health Dashboard</button>
+    <button class="toggle-btn" data-view="timeline">Full Timeline</button>
+</div>
+
+<!-- ========== OVERVIEW ========== -->
+<div class="view-section active" id="view-overview">
+    <div class="section-title">Current System &mdash; What Works, What Doesn't</div>
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-value" style="color:var(--green)">14</div>
+            <div class="metric-label">Financial Fields</div>
+            <div class="metric-change" style="color:var(--green)">Solid extraction</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" style="color:var(--green)">3</div>
+            <div class="metric-label">Accounting Standards</div>
+            <div class="metric-change" style="color:var(--text-tertiary)">US GAAP, IFRS, Ind-AS</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" style="color:var(--red)">1</div>
+            <div class="metric-label">Extraction Attempts</div>
+            <div class="metric-change" style="color:var(--red)">No retry on failure</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" style="color:var(--red)">0</div>
+            <div class="metric-label">Table Awareness</div>
+            <div class="metric-change" style="color:var(--red)">Raw text only (PDFBox)</div>
+        </div>
+    </div>
+
+    <div class="section-title">After Both Scopes</div>
+    <div class="metrics-grid">
+        <div class="metric-card" style="border-color:var(--orange);border-style:dashed">
+            <div class="metric-value" style="color:var(--orange)">19</div>
+            <div class="metric-label">Financial Fields</div>
+            <div class="metric-change" style="color:var(--orange)">+5 cash flow fields</div>
+        </div>
+        <div class="metric-card" style="border-color:var(--orange);border-style:dashed">
+            <div class="metric-value" style="color:var(--orange)">2</div>
+            <div class="metric-label">Years per Extraction</div>
+            <div class="metric-change" style="color:var(--orange)">Current + prior year</div>
+        </div>
+        <div class="metric-card" style="border-color:var(--accent);border-style:dashed">
+            <div class="metric-value" style="color:var(--accent)">5</div>
+            <div class="metric-label">Query Types</div>
+            <div class="metric-change" style="color:var(--accent)">+TREND, +RELATIONSHIP</div>
+        </div>
+        <div class="metric-card" style="border-color:var(--accent);border-style:dashed">
+            <div class="metric-value" style="color:var(--accent)">6</div>
+            <div class="metric-label">Anomaly Checks</div>
+            <div class="metric-change" style="color:var(--accent)">Auto health monitoring</div>
+        </div>
+    </div>
+
+    <!-- Dual scope comparison -->
+    <div class="compare-grid" style="margin-top:var(--s6)">
+        <div class="compare-col">
+            <h3><span class="dot dot-orange"></span> Scope A: Extraction Hardening</h3>
+            <ul class="gap-list">
+                <li class="gap-item"><span class="gap-icon gain">1</span><span><strong>Table-aware PDF extraction</strong> &mdash; Tabula-java for financial tables, preserving column structure</span></li>
+                <li class="gap-item"><span class="gap-icon gain">2</span><span><strong>Dual-year extraction</strong> &mdash; current + prior year in single pass, YoY validation checks</span></li>
+                <li class="gap-item"><span class="gap-icon gain">3</span><span><strong>Retry with self-correction</strong> &mdash; if validation fails, retry with corrective prompt</span></li>
+                <li class="gap-item"><span class="gap-icon gain">4</span><span><strong>Computed confidence</strong> &mdash; objective score from completeness + validation, replaces LLM self-report</span></li>
+                <li class="gap-item"><span class="gap-icon gain">5</span><span><strong>Cash flow statement</strong> &mdash; 5 new fields, cash flow identity check, free cash flow</span></li>
+                <li class="gap-item"><span class="gap-icon gain">6</span><span><strong>EDGAR cache + regex fix</strong> &mdash; 24h cache for 5MB tickers file, safe JSON parser</span></li>
+            </ul>
+        </div>
+        <div class="compare-col">
+            <h3><span class="dot dot-accent"></span> Scope B: Knowledge Architecture</h3>
+            <ul class="gap-list">
+                <li class="gap-item"><span class="gap-icon gain">1</span><span><strong>Company master table</strong> &mdash; canonical names, ticker, CIK, sector. Companies as first-class entities.</span></li>
+                <li class="gap-item"><span class="gap-icon gain">2</span><span><strong>Knowledge compilation</strong> &mdash; LLM synthesizes raw chunks into structured summary articles per section</span></li>
+                <li class="gap-item"><span class="gap-icon gain">3</span><span><strong>Health dashboard</strong> &mdash; extraction rates, field coverage, anomaly detection, contradictions. Zero LLM cost.</span></li>
+                <li class="gap-item"><span class="gap-icon gain">4</span><span><strong>Entity relationships + CSV</strong> &mdash; subsidiary/competitor/supplier links, spreadsheet export</span></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- ========== SCOPE A ========== -->
+<div class="view-section" id="view-scope-a">
+    <div class="section-title"><span class="scope-badge scope-a">Scope A</span> Extraction Hardening &mdash; 6 Phases</div>
+    <div class="section-subtitle">Fix the "garbage in, garbage out" problem. Better input to LLM = better extraction = better everything downstream.</div>
+
+    <!-- Current extraction weaknesses -->
+    <div class="card" style="border-color:var(--red);margin-bottom:var(--s8)">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--red-soft);color:var(--red)">!</div>
+            <div class="card-title">Current Extraction Vulnerabilities</div>
+        </div>
+        <div class="flow">
+            <div class="flow-step warn">PDFBox flattens tables</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step warn">Garbled column alignment</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step warn">LLM guesses numbers</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step warn">Wrong values stored</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step warn">Self-reported confidence = 0.95</div>
+        </div>
+        <div class="card-desc" style="margin-top:var(--s3)">The LLM doesn't know its input is garbled. It confidently extracts wrong numbers. Validation catches some errors (accounting equation), but internally-consistent wrong values pass all checks.</div>
+    </div>
+
+    <!-- A1 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--orange-soft);color:var(--orange)">A1</div>
+            <div class="card-title">Table-Aware PDF Extraction <span class="tag tag-red">Highest Impact</span></div>
+        </div>
+        <div class="compare-grid">
+            <div>
+                <div style="font-size:12px;color:var(--text-tertiary);font-weight:600;margin-bottom:var(--s2)">BEFORE (PDFBox raw text)</div>
+                <div class="query-result" style="color:var(--red)">2024 2023
+Total Assets 25,111 22,487
+Current Assets 18,320 15,890
+Total Liabilities 12,345 11,234</div>
+                <div style="font-size:11px;color:var(--red);margin-top:var(--s2)">Columns misaligned, LLM must guess which number is 2024 vs 2023</div>
+            </div>
+            <div>
+                <div style="font-size:12px;color:var(--text-tertiary);font-weight:600;margin-bottom:var(--s2)">AFTER (Tabula structured table)</div>
+                <div class="query-result" style="color:var(--green)">| Line Item        | 2024   | 2023   |
+|------------------|--------|--------|
+| Total Assets     | 25,111 | 22,487 |
+| Current Assets   | 18,320 | 15,890 |
+| Total Liabilities| 12,345 | 11,234 |</div>
+                <div style="font-size:11px;color:var(--green);margin-top:var(--s2)">Clean pipe-delimited table, no ambiguity for the LLM</div>
+            </div>
+        </div>
+        <div style="margin-top:var(--s4)">
+            <span class="tag tag-green">+TableExtractionService.java</span>
+            <span class="tag tag-green">+ExtractedTable.java</span>
+            <span class="tag tag-amber">~FinancialExtractionService.java</span>
+            <span class="tag tag-amber">~FinancialStatementDetector.java</span>
+        </div>
+    </div>
+
+    <!-- A2 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--orange-soft);color:var(--orange)">A2</div>
+            <div class="card-title">Dual-Year Extraction <span class="tag tag-orange">High Impact, Low Effort</span></div>
+        </div>
+        <div class="card-desc">
+            Financial statements always show current + prior year. Currently we extract only current year and throw away the comparative.
+            <strong>Free data at zero extra LLM cost</strong> &mdash; same pages, same prompt, just ask for both years.
+        </div>
+        <div style="margin-top:var(--s3)">
+            <div style="font-size:12px;color:var(--text-tertiary);font-weight:600;margin-bottom:var(--s2)">NEW FIELDS (4 key prior-year metrics)</div>
+            <table class="schema-table">
+                <thead><tr><th>Column</th><th>Type</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr class="added"><td>prior_year_revenue</td><td>NUMERIC(20,2)</td><td>YoY revenue comparison</td></tr>
+                    <tr class="added"><td>prior_year_net_income</td><td>NUMERIC(20,2)</td><td>YoY profit comparison</td></tr>
+                    <tr class="added"><td>prior_year_total_assets</td><td>NUMERIC(20,2)</td><td>Balance sheet trend</td></tr>
+                    <tr class="added"><td>prior_year_total_equity</td><td>NUMERIC(20,2)</td><td>Equity trend</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top:var(--s3)">
+            <div style="font-size:12px;color:var(--text-tertiary);font-weight:600;margin-bottom:var(--s2)">NEW VALIDATION CHECKS</div>
+            <div style="display:flex;gap:var(--s3);flex-wrap:wrap">
+                <div style="padding:var(--s2) var(--s3);background:var(--amber-soft);border-radius:var(--r-sm);font-size:12px">YoY Revenue Swing &gt; 80% &rarr; WARNING</div>
+                <div style="padding:var(--s2) var(--s3);background:var(--amber-soft);border-radius:var(--r-sm);font-size:12px">YoY Assets Swing &gt; 50% &rarr; WARNING</div>
+                <div style="padding:var(--s2) var(--s3);background:var(--amber-soft);border-radius:var(--r-sm);font-size:12px">Revenue up but Net Income down &gt; 50% &rarr; WARNING</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- A3 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--orange-soft);color:var(--orange)">A3</div>
+            <div class="card-title">Retry with Self-Correction</div>
+        </div>
+        <div class="card-desc">If validation fails with CRITICAL/ERROR, retry once with a corrective prompt that includes the specific errors.</div>
+        <div class="flow" style="margin-top:var(--s3)">
+            <div class="flow-step">Extract</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">Validate</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step warn">FAILED?</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step new-a">Corrective Prompt</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step new-a">Re-Extract</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step new-a">Re-Validate</div>
+            <span class="flow-arrow">&rarr;</span>
+            <div class="flow-step">Store best</div>
+        </div>
+    </div>
+
+    <!-- A4 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--orange-soft);color:var(--orange)">A4</div>
+            <div class="card-title">Computed Confidence Score</div>
+        </div>
+        <div class="compare-grid">
+            <div>
+                <div style="font-size:12px;color:var(--red);font-weight:600;margin-bottom:var(--s2)">BEFORE: LLM self-reported</div>
+                <div class="query-result">confidence: <span style="color:var(--red)">0.95</span>
+<span class="label">(LLM says "I'm very confident"
+ even on hallucinated data)</span></div>
+            </div>
+            <div>
+                <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:var(--s2)">AFTER: Computed from evidence</div>
+                <div class="query-result">completeness: <span class="num">12/14</span> fields = 0.86
+validation:    <span class="num">8/9</span> checks  = 0.89
+xbrl_match:    <span class="num">11/13</span> tags   = 0.85
+<span style="color:var(--green);font-weight:600">confidence = 0.3(0.86) + 0.5(0.89) + 0.2(0.85) = <span class="num">0.87</span></span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- A5 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--orange-soft);color:var(--orange)">A5</div>
+            <div class="card-title">Cash Flow Statement Extraction <span class="tag tag-orange">+5 new fields</span></div>
+        </div>
+        <div class="card-desc">Currently the cash flow statement is completely invisible. Adding operating/investing/financing cash flows + capex + free cash flow.</div>
+        <table class="schema-table" style="margin-top:var(--s3)">
+            <thead><tr><th>Field</th><th>Maps From</th><th>Validation</th></tr></thead>
+            <tbody>
+                <tr class="added"><td>operating_cash_flow</td><td>"Cash flows from operating activities"</td><td rowspan="3" style="vertical-align:middle">O + I + F = net change in cash</td></tr>
+                <tr class="added"><td>investing_cash_flow</td><td>"Cash flows from investing activities"</td></tr>
+                <tr class="added"><td>financing_cash_flow</td><td>"Cash flows from financing activities"</td></tr>
+                <tr class="added"><td>capital_expenditure</td><td>"Purchase of property, plant and equipment"</td><td>capex &le; abs(investing)</td></tr>
+                <tr class="added"><td>free_cash_flow</td><td>operating - capex (computed)</td><td>FCF = OCF - capex</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- A6 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--orange-soft);color:var(--orange)">A6</div>
+            <div class="card-title">EDGAR Cache + Greedy Regex Fix <span class="tag tag-green">Quick Win</span></div>
+        </div>
+        <div class="compare-grid">
+            <div>
+                <div class="card-desc"><strong>EDGAR Cache:</strong> company_tickers.json is ~5MB downloaded on every validation. Add 24h in-memory cache.</div>
+            </div>
+            <div>
+                <div class="card-desc"><strong>Regex Fix:</strong> <code style="color:var(--red)">\{.*\}</code> is greedy &mdash; can match wrong JSON. Replace with balanced-brace counter.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sequencing -->
+    <div class="card" style="margin-top:var(--s4)">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--orange-soft);color:var(--orange)">S</div>
+            <div class="card-title">Scope A Sequencing</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:var(--s3);padding:var(--s4);flex-wrap:wrap">
+            <div style="background:var(--orange-soft);border:1px solid rgba(249,115,22,0.3);border-radius:var(--r-md);padding:var(--s3) var(--s5);text-align:center">
+                <div style="font-size:11px;color:var(--orange);font-weight:600">A1</div>
+                <div style="font-size:12px;font-weight:600">Table Extraction</div>
+                <div style="font-size:10px;color:var(--text-tertiary)">Highest impact</div>
+            </div>
+            <span style="color:var(--text-ghost)">&rarr;</span>
+            <div style="background:var(--orange-soft);border:1px solid rgba(249,115,22,0.3);border-radius:var(--r-md);padding:var(--s3) var(--s5);text-align:center">
+                <div style="font-size:11px;color:var(--orange);font-weight:600">A2</div>
+                <div style="font-size:12px;font-weight:600">Dual-Year</div>
+            </div>
+            <span style="color:var(--text-ghost)">&rarr;</span>
+            <div style="background:var(--orange-soft);border:1px solid rgba(249,115,22,0.3);border-radius:var(--r-md);padding:var(--s3) var(--s5);text-align:center">
+                <div style="font-size:11px;color:var(--orange);font-weight:600">A3</div>
+                <div style="font-size:12px;font-weight:600">Retry</div>
+            </div>
+            <span style="color:var(--text-ghost)">&rarr;</span>
+            <div style="background:var(--orange-soft);border:1px solid rgba(249,115,22,0.3);border-radius:var(--r-md);padding:var(--s3) var(--s5);text-align:center">
+                <div style="font-size:11px;color:var(--orange);font-weight:600">A4</div>
+                <div style="font-size:12px;font-weight:600">Confidence</div>
+            </div>
+            <span style="color:var(--text-ghost)">&rarr;</span>
+            <div style="background:var(--orange-soft);border:1px solid rgba(249,115,22,0.3);border-radius:var(--r-md);padding:var(--s3) var(--s5);text-align:center">
+                <div style="font-size:11px;color:var(--orange);font-weight:600">A5</div>
+                <div style="font-size:12px;font-weight:600">Cash Flow</div>
+            </div>
+        </div>
+        <div style="text-align:center;font-size:11px;color:var(--text-tertiary);margin-top:var(--s2)">A6 (Cache + Regex) is independent &mdash; do anytime</div>
+    </div>
+</div>
+
+<!-- ========== SCOPE B ========== -->
+<div class="view-section" id="view-scope-b">
+    <div class="section-title"><span class="scope-badge scope-b">Scope B</span> Knowledge Architecture &mdash; 4 Phases</div>
+    <div class="section-subtitle">Inspired by Karpathy's LLM Knowledge Bases. Transform FinLens from document extraction into a financial knowledge base.</div>
+
+    <!-- B1 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--accent-soft);color:var(--accent)">B1</div>
+            <div class="card-title">Company Master & Temporal Modeling <span class="tag tag-accent">Foundation</span></div>
+        </div>
+        <div class="card-desc">Normalize company identity. Drop the 1:1 unique constraint. Enable multi-period tracking.</div>
+        <div class="compare-grid" style="margin-top:var(--s4)">
+            <div>
+                <div style="font-size:12px;color:var(--red);font-weight:600;margin-bottom:var(--s2)">BEFORE</div>
+                <div class="query-result">financial_data.company_name = "Micron Technology, Inc."
+<span class="label">(just a string, no normalization)
+document_id: UNIQUE constraint
+ &rarr; 1 extraction per document
+ &rarr; can't track Micron across FY2022, FY2023, FY2024</span></div>
+            </div>
+            <div>
+                <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:var(--s2)">AFTER</div>
+                <div class="query-result"><span class="num">company</span> table:
+  canonical_name: "micron technology"
+  ticker: "MU", cik: "0000723125"
+  sector: "Semiconductors"
+
+financial_data.company_id &rarr; company(id)
+financial_data.period_type = FY | Q1 | Q2 | Q3 | Q4
+<span class="label">&rarr; trend queries, YoY analysis, peer groups</span></div>
+            </div>
+        </div>
+        <div style="margin-top:var(--s4)">
+            <span class="tag tag-green">+Company.java</span>
+            <span class="tag tag-green">+CompanyResolutionService.java</span>
+            <span class="tag tag-green">+CompanyController.java</span>
+            <span class="tag tag-green">+PeriodType.java</span>
+            <span class="tag tag-amber">~FinancialData.java</span>
+            <span class="tag tag-amber">~QueryClassifier.java (+TREND)</span>
+            <span class="tag tag-amber">~StructuredQueryService.java (+answerTrend)</span>
+        </div>
+    </div>
+
+    <!-- B2 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--accent-soft);color:var(--accent)">B2</div>
+            <div class="card-title">Knowledge Compilation <span class="tag tag-accent">Karpathy's Core Insight</span></div>
+        </div>
+        <div class="card-desc">After ingestion, LLM compiles raw chunks into structured summary articles per 10-K section. Stored in DB + vector store. RAG prefers compiled content.</div>
+        <div style="margin-top:var(--s4);display:grid;grid-template-columns:repeat(5,1fr);gap:var(--s3)">
+            <div style="background:var(--surface-raised);border-radius:var(--r-sm);padding:var(--s3);text-align:center">
+                <div style="font-size:11px;color:var(--accent);font-weight:600">Item 1</div>
+                <div style="font-size:12px">BUSINESS_OVERVIEW</div>
+            </div>
+            <div style="background:var(--surface-raised);border-radius:var(--r-sm);padding:var(--s3);text-align:center">
+                <div style="font-size:11px;color:var(--accent);font-weight:600">Item 1A</div>
+                <div style="font-size:12px">RISK_PROFILE</div>
+            </div>
+            <div style="background:var(--surface-raised);border-radius:var(--r-sm);padding:var(--s3);text-align:center">
+                <div style="font-size:11px;color:var(--accent);font-weight:600">Item 7</div>
+                <div style="font-size:12px">MGMT_DISCUSSION</div>
+            </div>
+            <div style="background:var(--surface-raised);border-radius:var(--r-sm);padding:var(--s3);text-align:center">
+                <div style="font-size:11px;color:var(--accent);font-weight:600">Item 7 subs</div>
+                <div style="font-size:12px">SEGMENT_ANALYSIS</div>
+            </div>
+            <div style="background:var(--surface-raised);border-radius:var(--r-sm);padding:var(--s3);text-align:center">
+                <div style="font-size:11px;color:var(--accent);font-weight:600">Items 1+7</div>
+                <div style="font-size:12px">COMPETITIVE_POS</div>
+            </div>
+        </div>
+        <div style="margin-top:var(--s3);font-size:12px;color:var(--text-secondary)">Each summary includes <code>key_entities</code> JSONB: companies, people, products, topics mentioned &mdash; feeds into B4 relationship extraction.</div>
+    </div>
+
+    <!-- B3 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--accent-soft);color:var(--accent)">B3</div>
+            <div class="card-title">Health Dashboard <span class="tag tag-green">Zero LLM Cost</span></div>
+        </div>
+        <div class="card-desc">Pure SQL metrics: extraction rates, field coverage heatmaps, anomaly detection, cross-doc contradiction flags. See the <strong>Health Dashboard</strong> tab for preview.</div>
+    </div>
+
+    <!-- B4 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--accent-soft);color:var(--accent)">B4</div>
+            <div class="card-title">Relationships + Export</div>
+        </div>
+        <div class="card-desc">Extract entity relationships from compiled summaries. CSV export for financial data.</div>
+        <div style="display:flex;gap:var(--s3);margin-top:var(--s3);flex-wrap:wrap">
+            <span class="tag tag-accent">SUBSIDIARY</span>
+            <span class="tag tag-accent">COMPETITOR</span>
+            <span class="tag tag-accent">SUPPLIER</span>
+            <span class="tag tag-accent">CUSTOMER</span>
+            <span class="tag tag-accent">PARTNER</span>
+            <span class="tag tag-accent">INVESTOR</span>
+        </div>
+    </div>
+
+    <!-- Sequencing -->
+    <div class="card" style="margin-top:var(--s4)">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--accent-soft);color:var(--accent)">S</div>
+            <div class="card-title">Scope B Sequencing</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:var(--s3);padding:var(--s4);flex-wrap:wrap">
+            <div style="background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:var(--r-md);padding:var(--s3) var(--s5);text-align:center">
+                <div style="font-size:11px;color:var(--accent);font-weight:600">B1</div>
+                <div style="font-size:12px;font-weight:600">Company Master</div>
+                <div style="font-size:10px;color:var(--text-tertiary)">Foundation</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:var(--s2)">
+                <span style="color:var(--text-ghost)">&rarr;</span>
+                <span style="color:var(--text-ghost)">&rarr;</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:var(--s3)">
+                <div style="background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:var(--r-md);padding:var(--s3) var(--s5);text-align:center">
+                    <div style="font-size:11px;color:var(--accent);font-weight:600">B2</div>
+                    <div style="font-size:12px;font-weight:600">Compilation</div>
+                </div>
+                <div style="background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:var(--r-md);padding:var(--s3) var(--s5);text-align:center">
+                    <div style="font-size:11px;color:var(--accent);font-weight:600">B3</div>
+                    <div style="font-size:12px;font-weight:600">Health</div>
+                    <div style="font-size:10px;color:var(--text-tertiary)">parallel w/ B2</div>
+                </div>
+            </div>
+            <span style="color:var(--text-ghost)">&rarr;</span>
+            <div style="background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:var(--r-md);padding:var(--s3) var(--s5);text-align:center">
+                <div style="font-size:11px;color:var(--accent);font-weight:600">B4</div>
+                <div style="font-size:12px;font-weight:600">Relationships</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== PIPELINE DIFF ========== -->
+<div class="view-section" id="view-pipeline">
+    <div class="section-title">Ingestion Pipeline &mdash; Before vs After</div>
+    <div class="compare-grid">
+        <div class="compare-col">
+            <h3><span class="dot dot-red"></span> Current Pipeline</h3>
+            <div class="card">
+                <div class="flow">
+                    <div class="flow-step warn">PDFBox (raw text)</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step">Section Chunking</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step">Vector Embed</div>
+                </div>
+                <div class="flow">
+                    <div class="flow-step current">LLM Extract (1 year, 14 fields)</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step current">Validate</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step warn">DONE (no retry)</div>
+                </div>
+                <div style="margin-top:var(--s3);font-size:12px;color:var(--text-secondary)">
+                    <strong>Issues:</strong> tables flattened, 1 year only, no retry, self-reported confidence, no cash flow, no compilation
+                </div>
+            </div>
+        </div>
+        <div class="compare-col">
+            <h3><span class="dot dot-green"></span> After Scope A + B</h3>
+            <div class="card" style="border-color:var(--green);border-style:dashed">
+                <div class="flow">
+                    <div class="flow-step new-a">Tabula (tables) + PDFBox (text)</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step">Section Chunking</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step">Vector Embed</div>
+                </div>
+                <div class="flow">
+                    <div class="flow-step new-a">LLM Extract (2 years, 19 fields)</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step new-a">Validate + YoY checks</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step new-a">Retry if FAILED</div>
+                </div>
+                <div class="flow">
+                    <div class="flow-step new-a">Computed Confidence</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step new-b">Company Resolution</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step new-b">Knowledge Compilation</div>
+                </div>
+                <div class="flow">
+                    <div class="flow-step new-b">Entity Extraction</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step new-b">Relationship Linking</div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="flow-step" style="border-color:var(--green);color:var(--green)">DONE</div>
+                </div>
+                <div style="margin-top:var(--s3);font-size:12px">
+                    <span style="color:var(--orange)">Orange = Scope A (extraction)</span> &nbsp; <span style="color:var(--accent)">Purple = Scope B (knowledge)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== QUERY FLOW ========== -->
+<div class="view-section" id="view-query">
+    <div class="section-title">Query Routing &mdash; 3 Types &rarr; 5 Types</div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--surface-raised);color:var(--text-tertiary)">3</div>
+            <div class="card-title">Current Query Types</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--s4)">
+            <div class="query-flow-box"><h4><span class="tag tag-accent">FINANCIAL_DATA</span></h4><div style="font-size:12px;color:var(--text-secondary)">DB lookup, &lt;100ms, zero LLM</div></div>
+            <div class="query-flow-box"><h4><span class="tag tag-blue">COMPARISON</span></h4><div style="font-size:12px;color:var(--text-secondary)">DB lookup, &lt;100ms, zero LLM</div></div>
+            <div class="query-flow-box"><h4><span class="tag tag-green">NARRATIVE</span></h4><div style="font-size:12px;color:var(--text-secondary)">Vector RAG + LLM, 2-5s</div></div>
+        </div>
+    </div>
+
+    <div class="card" style="border-color:var(--green);border-style:dashed">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--green-soft);color:var(--green)">5</div>
+            <div class="card-title">Future Query Types <span class="tag tag-green">+2 new</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:var(--s4)">
+            <div class="query-flow-box"><h4><span class="tag tag-accent">FINANCIAL_DATA</span></h4><div style="font-size:12px;color:var(--text-secondary)">Same + cash flow fields</div></div>
+            <div class="query-flow-box"><h4><span class="tag tag-blue">COMPARISON</span></h4><div style="font-size:12px;color:var(--text-secondary)">Same as current</div></div>
+            <div class="query-flow-box" style="border-color:var(--accent);border-style:dashed"><h4><span class="tag tag-accent">TREND</span> <span class="scope-badge scope-b" style="font-size:10px;padding:1px 6px">B</span></h4><div class="query-example" style="font-size:11px">"Micron revenue over 3 years"</div><div style="font-size:12px;color:var(--text-secondary)">Multi-year table + YoY%, zero LLM</div></div>
+            <div class="query-flow-box" style="border-color:var(--accent);border-style:dashed"><h4><span class="tag tag-accent">RELATIONSHIP</span> <span class="scope-badge scope-b" style="font-size:10px;padding:1px 6px">B</span></h4><div class="query-example" style="font-size:11px">"Micron's competitors?"</div><div style="font-size:12px;color:var(--text-secondary)">DB lookup, zero LLM</div></div>
+            <div class="query-flow-box"><h4><span class="tag tag-green">NARRATIVE</span> (upgraded)</h4><div style="font-size:12px;color:var(--text-secondary)">Compiled summaries first, better coherence</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== HEALTH ========== -->
+<div class="view-section" id="view-health">
+    <div class="section-title">Knowledge Health Dashboard <span class="scope-badge scope-b">Scope B</span></div>
+    <div class="section-subtitle">Pure SQL metrics. Zero LLM cost. Endpoint: GET /api/v1/knowledge-bases/{kbId}/health</div>
+
+    <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-value" style="color:var(--green)">92%</div><div class="metric-label">Extraction Success</div><div class="metric-change" style="color:var(--text-tertiary)">23/25 documents</div></div>
+        <div class="metric-card"><div class="metric-value" style="color:var(--green)">88%</div><div class="metric-label">Validation Pass Rate</div><div class="metric-change" style="color:var(--text-tertiary)">21/23 extractions</div></div>
+        <div class="metric-card"><div class="metric-value" style="color:var(--accent)">0.87</div><div class="metric-label">Avg Confidence</div><div class="metric-change" style="color:var(--orange)">Computed (Scope A4)</div></div>
+        <div class="metric-card"><div class="metric-value" style="color:var(--amber)">79%</div><div class="metric-label">Field Completeness</div><div class="metric-change" style="color:var(--amber)">3 fields commonly null</div></div>
+    </div>
+
+    <div class="compare-grid">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background:var(--accent-soft);color:var(--accent)">F</div>
+                <div class="card-title">Field Coverage Heatmap</div>
+            </div>
+            <div class="health-bar-group"><div class="health-bar-label"><span>revenue</span><span>100%</span></div><div class="health-bar"><div class="health-bar-fill" style="width:100%;background:var(--green)"></div></div></div>
+            <div class="health-bar-group"><div class="health-bar-label"><span>total_assets</span><span>100%</span></div><div class="health-bar"><div class="health-bar-fill" style="width:100%;background:var(--green)"></div></div></div>
+            <div class="health-bar-group"><div class="health-bar-label"><span>net_income</span><span>96%</span></div><div class="health-bar"><div class="health-bar-fill" style="width:96%;background:var(--green)"></div></div></div>
+            <div class="health-bar-group"><div class="health-bar-label"><span>operating_cash_flow <span class="tag tag-orange" style="font-size:9px">A5</span></span><span>92%</span></div><div class="health-bar"><div class="health-bar-fill" style="width:92%;background:var(--green)"></div></div></div>
+            <div class="health-bar-group"><div class="health-bar-label"><span>gross_profit</span><span>88%</span></div><div class="health-bar"><div class="health-bar-fill" style="width:88%;background:var(--accent)"></div></div></div>
+            <div class="health-bar-group"><div class="health-bar-label"><span>trade_receivables</span><span>72%</span></div><div class="health-bar"><div class="health-bar-fill" style="width:72%;background:var(--amber)"></div></div></div>
+            <div class="health-bar-group"><div class="health-bar-label"><span>trade_payables</span><span>68%</span></div><div class="health-bar"><div class="health-bar-fill" style="width:68%;background:var(--amber)"></div></div></div>
+            <div class="health-bar-group"><div class="health-bar-label"><span>accumulated_profit</span><span>52%</span></div><div class="health-bar"><div class="health-bar-fill" style="width:52%;background:var(--red)"></div></div></div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background:var(--amber-soft);color:var(--amber)">!</div>
+                <div class="card-title">Detected Anomalies</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:var(--s3)">
+                <div style="display:flex;align-items:center;gap:var(--s3);padding:var(--s3);background:var(--red-soft);border-radius:var(--r-sm)">
+                    <span class="tag tag-red">ERROR</span>
+                    <span style="font-size:12px"><strong>Cross-Doc Contradiction</strong><br><span style="color:var(--text-secondary)">TCS FY2024: revenue differs by 8.2% between filings</span></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:var(--s3);padding:var(--s3);background:var(--amber-soft);border-radius:var(--r-sm)">
+                    <span class="tag tag-amber">WARN</span>
+                    <span style="font-size:12px"><strong>Unusual Current Ratio</strong><br><span style="color:var(--text-secondary)">Company X: ratio = 0.08</span></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:var(--s3);padding:var(--s3);background:var(--amber-soft);border-radius:var(--r-sm)">
+                    <span class="tag tag-amber">WARN</span>
+                    <span style="font-size:12px"><strong>YoY Revenue Swing</strong> <span class="tag tag-orange" style="font-size:9px">A2</span><br><span style="color:var(--text-secondary)">Micron FY2023: revenue dropped 49.5%</span></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:var(--s3);padding:var(--s3);background:var(--green-soft);border-radius:var(--r-sm)">
+                    <span class="tag tag-green">OK</span>
+                    <span style="font-size:12px;color:var(--text-secondary)">20 documents passed all checks</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== TIMELINE ========== -->
+<div class="view-section" id="view-timeline">
+    <div class="section-title">Full Implementation Timeline</div>
+    <div class="section-subtitle">Both scopes run in parallel. Orange = Extraction (A), Purple = Knowledge (B).</div>
+
+    <!-- Cross-scope dependency -->
+    <div class="card" style="margin-bottom:var(--s8)">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--surface-raised);color:var(--text)">D</div>
+            <div class="card-title">Cross-Scope Dependencies</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:var(--s6);padding:var(--s4);align-items:start">
+            <div>
+                <div style="text-align:center;margin-bottom:var(--s3)"><span class="scope-badge scope-a">Scope A: Extraction</span></div>
+                <div style="display:flex;flex-direction:column;gap:var(--s2)">
+                    <div style="background:var(--orange-soft);border:1px solid rgba(249,115,22,0.2);border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px"><strong>A1</strong> Table Extraction</div>
+                    <div style="background:var(--orange-soft);border:1px solid rgba(249,115,22,0.2);border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px"><strong>A2</strong> Dual-Year</div>
+                    <div style="background:var(--orange-soft);border:1px solid rgba(249,115,22,0.2);border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px"><strong>A3</strong> Retry</div>
+                    <div style="background:var(--orange-soft);border:1px solid rgba(249,115,22,0.2);border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px"><strong>A4</strong> Computed Confidence</div>
+                    <div style="background:var(--orange-soft);border:1px solid rgba(249,115,22,0.2);border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px"><strong>A5</strong> Cash Flow</div>
+                    <div style="background:var(--orange-soft);border:1px solid rgba(249,115,22,0.2);border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px"><strong>A6</strong> Cache + Regex</div>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:var(--s6);padding-top:var(--s10)">
+                <div style="font-size:11px;color:var(--text-ghost);writing-mode:vertical-rl;transform:rotate(180deg)">independent but synergistic</div>
+                <div style="width:1px;height:100px;background:var(--surface-glass-border)"></div>
+                <div style="font-size:11px;color:var(--amber);text-align:center">A4 &rarr; B3<br><span style="font-size:10px;color:var(--text-tertiary)">(confidence feeds health)</span></div>
+            </div>
+            <div>
+                <div style="text-align:center;margin-bottom:var(--s3)"><span class="scope-badge scope-b">Scope B: Knowledge</span></div>
+                <div style="display:flex;flex-direction:column;gap:var(--s2)">
+                    <div style="background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px"><strong>B1</strong> Company Master</div>
+                    <div style="background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px"><strong>B2</strong> Knowledge Compilation</div>
+                    <div style="background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px"><strong>B3</strong> Health Dashboard</div>
+                    <div style="background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px"><strong>B4</strong> Relationships + Export</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary stats -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--green-soft);color:var(--green)">T</div>
+            <div class="card-title">Total Scope &mdash; Both Workstreams</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:var(--s4);text-align:center">
+            <div><div style="font-size:24px;font-weight:700;font-family:var(--mono);color:var(--orange)">6</div><div style="font-size:11px;color:var(--text-tertiary)">SCOPE A PHASES</div></div>
+            <div><div style="font-size:24px;font-weight:700;font-family:var(--mono);color:var(--accent)">4</div><div style="font-size:11px;color:var(--text-tertiary)">SCOPE B PHASES</div></div>
+            <div><div style="font-size:24px;font-weight:700;font-family:var(--mono);color:var(--green)">6</div><div style="font-size:11px;color:var(--text-tertiary)">NEW MIGRATIONS</div></div>
+            <div><div style="font-size:24px;font-weight:700;font-family:var(--mono);color:var(--green)">3</div><div style="font-size:11px;color:var(--text-tertiary)">NEW TABLES</div></div>
+            <div><div style="font-size:24px;font-weight:700;font-family:var(--mono);color:var(--green)">~25</div><div style="font-size:11px;color:var(--text-tertiary)">NEW JAVA FILES</div></div>
+            <div><div style="font-size:24px;font-weight:700;font-family:var(--mono);color:var(--green)">19</div><div style="font-size:11px;color:var(--text-tertiary)">FINANCIAL FIELDS</div></div>
+        </div>
+    </div>
+
+    <!-- Migration allocation -->
+    <div class="card" style="margin-top:var(--s4)">
+        <div class="card-header">
+            <div class="card-icon" style="background:var(--surface-raised);color:var(--text-tertiary)">M</div>
+            <div class="card-title">Migration Number Allocation</div>
+        </div>
+        <table class="schema-table">
+            <thead><tr><th>#</th><th>Scope</th><th>Description</th></tr></thead>
+            <tbody>
+                <tr><td>005</td><td><span class="tag tag-orange">A</span></td><td>Add prior-year fields to financial_data</td></tr>
+                <tr><td>006</td><td><span class="tag tag-orange">A</span></td><td>Add cash flow fields to financial_data</td></tr>
+                <tr><td>007</td><td><span class="tag tag-accent">B</span></td><td>Create company table</td></tr>
+                <tr><td>008</td><td><span class="tag tag-accent">B</span></td><td>Add company_id + period_type, drop unique constraint</td></tr>
+                <tr><td>009</td><td><span class="tag tag-accent">B</span></td><td>Create document_summary table</td></tr>
+                <tr><td>010</td><td><span class="tag tag-accent">B</span></td><td>Create entity_relationship table</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</div>
+
+<script>
+document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.toggle-btn').forEach(b => { b.classList.remove('active'); b.classList.remove('active-a'); });
+        document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+        const view = btn.dataset.view;
+        if (view === 'scope-a') btn.classList.add('active-a');
+        else btn.classList.add('active');
+        document.getElementById('view-' + view).classList.add('active');
+    });
+});
+</script>
+</body>
+</html>
