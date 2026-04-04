@@ -33,12 +33,14 @@ PDF Upload
     ├─► PDF Extraction (PDFBox) → Section-aware chunking → Embeddings → pgvector
     │                                                          (Vector RAG path)
     │
-    └─► Financial Statement Detection → LLM Structured Extraction → Validation
-                                              │                          │
-                                              ▼                          ▼
-                                        financial_data table    Accounting checks
-                                        (14 fields, typed)     + XBRL cross-check
-                                                               (Structured path)
+    └─► Financial Statement Detection → Docling enrichment* → LLM Extraction → Validation
+                                                                    │                │
+                                                                    ▼                ▼
+                                                           financial_data    Accounting checks
+                                                           (14 fields)      + XBRL cross-check
+
+* Docling: optional per-section table enrichment (BS/IS/Notes separately).
+  Falls back to PDFBox per section if unavailable. Disabled by default.
 ```
 
 ## Features
@@ -200,8 +202,6 @@ OPENAI_API_KEY=sk-... ./mvnw spring-boot:run -Dspring-boot.run.profiles=openai
 Full API docs at `/swagger-ui.html`.
 
 ## Accuracy
-
-Tested across 3 companies, 3 accounting standards:
 
 Tested on 3 companies × 3 accounting standards using gpt-4o-mini:
 
