@@ -23,6 +23,9 @@ An AI-powered financial data extraction and analysis platform that turns any fin
          │  <100ms, 100% acc   │          │  → LLM generation    │
          │  Zero LLM cost      │          │  10-30s, ~95% acc    │
          └─────────────────────┘          └──────────────────────┘
+              also handles TREND
+              (multi-year table +
+               YoY % change)
 ```
 
 ### Ingestion Pipeline
@@ -30,15 +33,23 @@ An AI-powered financial data extraction and analysis platform that turns any fin
 ```
 PDF Upload
     │
-    ├─► PDF Extraction (PDFBox) → Section-aware chunking → Embeddings → pgvector
-    │                                                          (Vector RAG path)
+    ├─► PDF Extraction (PDFBox / Docling*) → Section-aware chunking → Embeddings → pgvector
+    │                                                                    (Vector RAG path)
     │
     └─► Financial Statement Detection → LLM Structured Extraction → Validation
-                                              │                          │
-                                              ▼                          ▼
-                                        financial_data table    Accounting checks
-                                        (14 fields, typed)     + XBRL cross-check
-                                                               (Structured path)
+              │                                   │                       │
+              ▼                                   ▼                       ▼
+       Docling enrichment*              financial_data table       Accounting checks
+       (BS/IS/Notes separately,         (14 fields, typed)        + XBRL cross-check
+        falls back to PDFBox)           Company resolution
+              │
+              ▼
+       Knowledge Compilation
+       (LLM section summaries →
+        document_summary table
+        + back into vector store)
+
+* Docling optional, disabled by default
 ```
 
 ## Features
@@ -49,6 +60,7 @@ PDF Upload
 - **Multi-currency/unit** — USD/SGD/INR, Millions/Crores/Lakhs/Billions
 - **Smart page detection** — keyword scoring identifies financial statement pages
 - **Notes-aware** — prefers narrow sub-line items (trade receivables) over aggregated totals
+- **Docling integration** — optional per-section IBM TableFormer enrichment for complex/scanned PDFs
 
 ### Multi-Layer Validation
 - **Accounting identity checks** — A=L+E, gross profit identity, bounds checks
@@ -57,18 +69,29 @@ PDF Upload
 
 ### Hybrid Query Routing
 - **Financial data queries** → instant DB lookup, zero LLM cost, 100% accuracy
+- **Trend queries** → multi-year markdown table with YoY % change (e.g. "show me Micron revenue over 3 years")
 - **Narrative queries** → vector RAG with semantic search + LLM generation
-- **Automatic classification** — keyword-based routing, no LLM overhead
+- **Automatic classification** — keyword-based routing with FINANCIAL_DATA, TREND, NARRATIVE types
+
+### Knowledge Architecture
+- **Company master** — canonical name deduplication (strips Inc./Ltd./Corp. suffixes), links all filings to a single company entity
+- **Knowledge compilation** — LLM synthesizes section summaries (Business, Risks, MD&A, Financials) post-ingestion; summaries stored in DB and back into vector store for improved RAG retrieval
+- **Health dashboard** — pure SQL quality metrics: extraction success rate, validation pass rate, avg confidence, field completeness per KB; no LLM cost
+- **Anomaly detection** — flags negative assets/equity, extreme margins, unusual current ratios, cross-document contradictions (same company+FY, values differ >5%)
+- **CSV export** — download all extracted financial data for a KB as a spreadsheet
+- **Cross-company relationships** — typed links (SUBSIDIARY, CUSTOMER, SUPPLIER, COMPETITOR, PARTNER) with evidence attribution
 
 ### RAG Pipeline
 - **Agentic mode** — query decomposition, parallel retrieval, evaluation + retry loop
 - **Section-aware chunking** — respects SEC filing structure (Item 1, Item 7, Item 8, etc.)
 - **Source attribution** — every answer cites section names and page numbers
+- **Summary-boosted retrieval** — compiled summaries returned alongside raw chunks
 
 ### Product UI (FinLens)
-- **Dashboard** — financial data cards, validation checks, key ratios, confidence scores
+- **Dashboard** — financial data cards, validation checks, key ratios, confidence scores, compiled summaries, CSV export button
 - **Compare** — side-by-side comparison table across companies
-- **Chat** — RAG query interface with markdown rendering and source cards
+- **Chat** — RAG query interface with markdown table rendering and source cards
+- **Health** — KB-level metric cards, per-field coverage bars, anomaly list with severity badges
 
 ## Tech Stack
 
@@ -119,10 +142,12 @@ Open **http://localhost:8080**
 
 1. Create a knowledge base in the sidebar
 2. Upload a financial filing PDF (drag-and-drop or browse)
-3. Wait for processing — extraction + validation runs automatically
-4. Click a document to see the **Dashboard** with extracted financial data
+3. Wait for processing — extraction + validation + knowledge compilation runs automatically
+4. Click a document to see the **Dashboard** with extracted financial data and compiled summaries
 5. Use **Compare** tab for cross-company analysis
-6. Use **Chat** tab for narrative questions
+6. Use **Chat** tab for narrative questions and trend queries ("show Micron revenue over 3 years")
+7. Use **Health** tab to monitor data quality across the KB
+8. Click **↓ Export CSV** to download all extracted data as a spreadsheet
 
 ## LLM Profiles
 
@@ -162,7 +187,7 @@ OPENAI_API_KEY=sk-... ./mvnw spring-boot:run -Dspring-boot.run.profiles=openai
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/v1/knowledge-bases/{kbId}/query` | Ask a question (auto-routes to structured or RAG) |
+| `POST` | `/api/v1/knowledge-bases/{kbId}/query` | Ask a question (auto-routes: FINANCIAL_DATA / TREND / NARRATIVE) |
 
 **Request:**
 ```json
@@ -194,16 +219,40 @@ OPENAI_API_KEY=sk-... ./mvnw spring-boot:run -Dspring-boot.run.profiles=openai
 | `GET` | `/{kbId}/documents/{docId}/financial-data` | Get extracted data |
 | `GET` | `/{kbId}/financial-data` | List all in KB |
 | `GET` | `/{kbId}/financial-data/compare?documentIds=id1,id2` | Compare across documents |
+| `GET` | `/{kbId}/financial-data/export.csv` | Download all as CSV |
 | `POST` | `/{kbId}/documents/{docId}/financial-data/re-extract` | Force re-extraction |
 | `POST` | `/{kbId}/documents/{docId}/financial-data/validate` | Re-run validation |
+
+### Knowledge Health
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/{kbId}/health` | Overall health report (extraction rate, validation rate, field completeness) |
+| `GET` | `/{kbId}/health/anomalies` | Detected data anomalies (negative values, extreme ratios, cross-doc contradictions) |
+| `GET` | `/{kbId}/health/field-coverage` | Per-field extraction coverage across all documents |
+
+### Knowledge Compilation (Summaries)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/{kbId}/summaries` | List all compiled summaries in a KB |
+| `GET` | `/{kbId}/documents/{docId}/summaries` | Compiled summaries for a specific document |
+
+### Companies
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/companies` | List all resolved companies with canonical names |
+| `GET` | `/api/v1/companies/{id}/financial-data` | All financial data for a company |
+| `GET` | `/api/v1/companies/{id}/relationships` | Company relationships |
+| `POST` | `/api/v1/companies/{id}/relationships` | Create a relationship |
+| `DELETE` | `/api/v1/companies/{id}/relationships/{relId}` | Delete a relationship |
 
 Full API docs at `/swagger-ui.html`.
 
 ## Accuracy
 
 Tested across 3 companies, 3 accounting standards:
-
-Tested on 3 companies × 3 accounting standards using gpt-4o-mini:
 
 | Company | Standard | Currency | Fields (14 total) | XBRL Checks | Validation |
 |---------|----------|----------|-------------------|-------------|------------|
@@ -215,31 +264,65 @@ Tested on 3 companies × 3 accounting standards using gpt-4o-mini:
 
 ```
 src/main/java/com/rkp/tenk/
-  config/              # AI, Async, LM Studio, OpenAPI, Web configs
-    DoclingConfig          # @EnableConfigurationProperties for Docling
-    DoclingProperties      # @ConfigurationProperties(prefix = "docling")
-  controller/          # KnowledgeBase, Document, Query, FinancialData controllers
-  service/             # Core services:
-    QueryClassifier        # Hybrid routing: FINANCIAL_DATA vs NARRATIVE
-    StructuredQueryService # DB lookup for financial queries (zero LLM)
-    AgenticRagOrchestrator # RAG with query decomposition + evaluation
-    FinancialExtractionService  # LLM-based structured extraction
-    FinancialStatementDetector  # Page detection via keyword scoring
-    FinancialValidationService  # Accounting identity checks
-    DoclingTableService    # Optional per-section table enrichment (disabled by default)
+  config/
+    AppProperties           # @ConfigurationProperties(prefix = "app") — model name
+    CompilationConfig       # @EnableConfigurationProperties for compilation
+    CompilationProperties   # @ConfigurationProperties(prefix = "knowledge-compilation")
+    DoclingConfig           # @EnableConfigurationProperties for Docling
+    DoclingProperties       # @ConfigurationProperties(prefix = "docling")
+  controller/
+    KnowledgeBaseController
+    DocumentController
+    FinancialDataController  # includes CSV export endpoint
+    QueryController
+    CompanyController        # company master + financial data by company
+    HealthController         # /health, /health/anomalies, /health/field-coverage
+    SummaryController        # /summaries, /documents/{id}/summaries
+    RelationshipController   # cross-company relationship CRUD
+  service/
+    QueryClassifier          # Hybrid routing: FINANCIAL_DATA, TREND, NARRATIVE
+    StructuredQueryService   # DB lookup + multi-year trend formatting (zero LLM)
+    AgenticRagOrchestrator   # RAG with query decomposition + evaluation
+    FinancialExtractionService    # LLM-based structured extraction
+    FinancialStatementDetector    # Page detection via keyword scoring
+    FinancialValidationService    # Accounting identity checks + pluggable sources
+    DoclingTableService           # Optional per-section table enrichment (disabled by default)
+    CompanyResolutionService      # Find-or-create company with race condition handling
+    KnowledgeCompilationService   # LLM section summaries → DB + vector store
+    KnowledgeHealthService        # Pure SQL health metrics + anomaly detection
+    FinancialDataExportService    # CSV generation with formula injection protection
     validation/
-      ValidationSource     # Pluggable validation interface
-      EdgarXbrlSource      # SEC EDGAR XBRL cross-validation
-  model/entity/        # KnowledgeBase, DocumentRecord, FinancialData
-  model/dto/           # Request/Response DTOs
-    FinancialStatementPages  # Detected pages with per-section effective*Text() fallback
-  model/enums/         # ExtractionStatus, ValidationStatus, AccountingStandard
-  repository/          # JPA repositories
+      ValidationSource       # Pluggable validation interface
+      EdgarXbrlSource        # SEC EDGAR XBRL cross-validation
+  model/
+    entity/
+      KnowledgeBase, DocumentRecord, FinancialData
+      Company                # Canonical name dedup entity
+      DocumentSummary        # LLM-compiled section summaries
+      EntityRelationship     # Typed cross-company links
+    dto/
+      FinancialStatementPages    # Detected pages with per-section effective*Text() fallback
+      KnowledgeHealthReport, FieldCoverage, FinancialAnomaly
+      DocumentSummaryResponse, CompanyResponse, RelationshipResponse
+    enums/
+      ExtractionStatus, ValidationStatus, AccountingStandard
+      SummaryType            # BUSINESS_OVERVIEW, RISK_PROFILE, MANAGEMENT_DISCUSSION, etc.
+      RelationshipType       # SUBSIDIARY, CUSTOMER, SUPPLIER, COMPETITOR, PARTNER
+      PeriodType             # FY, Q1-Q4, H1, H2
+  repository/              # JPA repositories
 
 src/main/resources/
-  static/              # FinLens Web UI (Dashboard, Compare, Chat) + roadmap.html
-  db/changelog/        # Liquibase migrations (4 changesets)
-  application.yml      # Multi-profile config (lmstudio, dev, openai)
+  static/                  # FinLens Web UI (Dashboard, Compare, Chat, Health)
+  db/changelog/            # Liquibase migrations (8 changesets)
+    001-initial-schema.yaml
+    002-add-validation-fields.yaml
+    003-add-pdf-content-to-document-record.yaml
+    004-add-pdf-content-to-document-record.yaml
+    005-create-company-table.yaml
+    006-add-company-id-and-period-type.yaml
+    007-create-document-summary.yaml
+    008-create-entity-relationship.yaml
+  application.yml          # Multi-profile config (lmstudio, dev, openai)
 ```
 
 ## Docker
@@ -274,7 +357,6 @@ Docling integrates IBM's [TableFormer ML model](https://github.com/DS4SD/docling
 docker compose --profile docling up -d docling-serve
 
 # 2. Enable in config (or pass as JVM arg)
-# application.yml: docling.enabled: true
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=lmstudio \
   -Dspring-boot.run.jvmArguments="-Ddocling.enabled=true"
 ```
@@ -288,6 +370,11 @@ docling:
   base-url: http://localhost:5001
   timeout-seconds: 60
   max-pages-per-request: 10  # per section
+
+knowledge-compilation:
+  enabled: true               # auto-compile summaries on ingestion
+  max-chunks-per-section: 20
+  max-summary-chars: 18000
 ```
 
 ## Testing
