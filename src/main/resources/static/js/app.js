@@ -43,6 +43,22 @@ const api = {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ question, topK })
         })).json();
+    },
+
+    async getHealth(kbId) {
+        const res = await fetch(`${API}/${kbId}/health`);
+        return res.ok ? res.json() : null;
+    },
+    async getAnomalies(kbId) {
+        const res = await fetch(`${API}/${kbId}/health/anomalies`);
+        return res.ok ? res.json() : [];
+    },
+    async getDocumentSummaries(kbId, docId) {
+        const res = await fetch(`${API}/${kbId}/documents/${docId}/summaries`);
+        return res.ok ? res.json() : [];
+    },
+    exportCsv(kbId) {
+        window.open(`${API}/${kbId}/financial-data/export.csv`, '_blank');
     }
 };
 
@@ -225,6 +241,7 @@ function switchTab(tabName) {
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
     document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
     document.getElementById(`tab-${tabName}`).classList.add('active');
+    if (tabName === 'health' && state.activeKbId) loadHealth();
 }
 
 // ============================================
@@ -298,8 +315,9 @@ function renderDashboard(fd) {
                 </div>
                 ${fd.extractionStatus === 'COMPLETED' ? `
                 <div class="header-actions">
-                    <button class="btn-ghost" onclick="handleReExtract('${fd.documentId}', this)">Re-extract</button>
-                    <button class="btn-ghost" onclick="handleReValidate('${fd.documentId}', this)">Re-validate</button>
+                    <button class="btn-action" onclick="handleReExtract('${fd.documentId}', this)">Re-extract</button>
+                    <button class="btn-action" onclick="handleReValidate('${fd.documentId}', this)">Re-validate</button>
+                    <button class="btn-export" onclick="api.exportCsv('${state.activeKbId}')">↓ Export CSV</button>
                 </div>
                 ` : fd.extractionStatus === 'EXTRACTING' ? `
                 <div class="header-actions">
@@ -307,7 +325,7 @@ function renderDashboard(fd) {
                 </div>
                 ` : fd.extractionStatus === 'FAILED' ? `
                 <div class="header-actions">
-                    <button class="btn-ghost" onclick="handleReExtract('${fd.documentId}', this)">Retry extraction</button>
+                    <button class="btn-action" onclick="handleReExtract('${fd.documentId}', this)">Retry extraction</button>
                 </div>
                 ` : ''}
             </div>
@@ -392,6 +410,9 @@ function renderDashboard(fd) {
             </div>`;
         content.appendChild(valSection);
     }
+
+    // Compiled summaries (async, loads after main render)
+    loadAndRenderSummaries(state.activeKbId, fd.documentId, content);
 }
 
 function renderFinCard(title, rows, currency, unit) {
@@ -549,6 +570,163 @@ function renderComparisonTable(docs) {
 }
 
 // ============================================
+// Section 7b: Knowledge Summaries (B2)
+// ============================================
+async function loadAndRenderSummaries(kbId, docId, container) {
+    try {
+        const summaries = await api.getDocumentSummaries(kbId, docId);
+        if (!summaries || summaries.length === 0) return;
+
+        const section = document.createElement('div');
+        section.className = 'health-section';
+        section.innerHTML = `
+            <div class="health-section-title">Compiled Summaries (${summaries.length})</div>
+            <div class="summary-list">
+                ${summaries.map(s => `
+                    <div class="summary-card">
+                        <div class="summary-card-header">
+                            <span class="summary-type-badge">${esc(formatSummaryType(s.summaryType))}</span>
+                            <span class="summary-section-name">${esc(s.sectionSource || '')}</span>
+                            <span class="summary-meta-text">${s.wordCount} words · ${esc(s.modelUsed || '')}</span>
+                        </div>
+                        <div class="summary-content">${esc(s.content)}</div>
+                    </div>
+                `).join('')}
+            </div>`;
+        container.appendChild(section);
+    } catch (e) {
+        // Summaries are optional — silently ignore failures
+    }
+}
+
+function formatSummaryType(type) {
+    const labels = {
+        BUSINESS_OVERVIEW: 'Business',
+        RISK_PROFILE: 'Risks',
+        MANAGEMENT_DISCUSSION: 'MD&A',
+        FINANCIAL_HIGHLIGHTS: 'Financials',
+        GENERAL: 'General'
+    };
+    return labels[type] || type;
+}
+
+// ============================================
+// Section 7c: Health Dashboard (B3)
+// ============================================
+async function loadHealth() {
+    const content = document.getElementById('health-content');
+    content.className = '';
+    content.innerHTML = '<div class="tab-empty"><span class="loading"></span> Loading health metrics...</div>';
+
+    try {
+        const [report, anomalies] = await Promise.all([
+            api.getHealth(state.activeKbId),
+            api.getAnomalies(state.activeKbId)
+        ]);
+        renderHealthReport(report, anomalies);
+    } catch (e) {
+        content.innerHTML = '<div class="tab-empty">Failed to load health metrics</div>';
+    }
+}
+
+function scoreClass(pct) {
+    if (pct >= 80) return 'score-high';
+    if (pct >= 60) return 'score-mid';
+    return 'score-low';
+}
+
+function coverageClass(pct) {
+    if (pct >= 80) return 'high';
+    if (pct >= 50) return 'mid';
+    return 'low';
+}
+
+function formatFieldName(name) {
+    return name
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, s => s.toUpperCase())
+        .replace('And', '&')
+        .trim();
+}
+
+function renderHealthReport(report, anomalies) {
+    const content = document.getElementById('health-content');
+    if (!report) {
+        content.innerHTML = '<div class="tab-empty">No health data available yet. Upload and process documents first.</div>';
+        return;
+    }
+
+    const html = [];
+
+    // ── Metric cards grid ──────────────────────────────────────────
+    html.push('<div class="health-grid">');
+
+    const metrics = [
+        { label: 'Extraction Rate',    value: report.extractionSuccessRate,  suffix: '%', sub: `${report.completedDocuments}/${report.totalDocuments} documents` },
+        { label: 'Validation Pass',    value: report.validationPassRate,      suffix: '%', sub: 'accounting checks' },
+        { label: 'Avg Confidence',     value: report.avgConfidence,           suffix: '%', sub: 'LLM-scored' },
+        { label: 'Field Completeness', value: report.avgFieldCompleteness,    suffix: '%', sub: '13 financial fields' },
+        { label: 'Companies',          value: report.companyCount,            suffix: '',  sub: 'distinct entities', noColor: true },
+        { label: 'Summaries',          value: report.summaryCount,            suffix: '',  sub: 'compiled sections', noColor: true }
+    ];
+
+    metrics.forEach(m => {
+        const cls = m.noColor ? '' : scoreClass(m.value);
+        html.push(`
+            <div class="health-metric-card">
+                <div class="health-metric-label">${m.label}</div>
+                <div class="health-metric-score ${cls}">${typeof m.value === 'number' && !Number.isInteger(m.value) ? m.value.toFixed(1) : m.value}${m.suffix}</div>
+                <div class="health-metric-sub">${m.sub}</div>
+            </div>`);
+    });
+
+    html.push('</div>');
+
+    // ── Field coverage ─────────────────────────────────────────────
+    if (report.fieldCoverage && report.fieldCoverage.length > 0) {
+        html.push('<div class="health-section">');
+        html.push('<div class="health-section-title">Field Coverage</div>');
+        html.push('<div class="coverage-list">');
+        report.fieldCoverage.forEach(fc => {
+            const cls = coverageClass(fc.coveragePercent);
+            const pct = fc.coveragePercent.toFixed(1);
+            html.push(`
+                <div class="coverage-row">
+                    <span class="coverage-field">${formatFieldName(fc.fieldName)}</span>
+                    <div class="coverage-bar"><div class="coverage-fill ${cls}" style="width:${pct}%"></div></div>
+                    <span class="coverage-pct">${pct}%</span>
+                </div>`);
+        });
+        html.push('</div></div>');
+    }
+
+    // ── Anomalies ──────────────────────────────────────────────────
+    html.push('<div class="health-section">');
+    const anomalyCount = anomalies ? anomalies.length : 0;
+    html.push(`<div class="health-section-title">Anomalies (${anomalyCount})</div>`);
+
+    if (!anomalies || anomalies.length === 0) {
+        html.push('<div class="anomaly-empty"><span>✓</span> No anomalies detected</div>');
+    } else {
+        html.push('<div class="anomaly-list">');
+        anomalies.forEach(a => {
+            const company = a.companyName ? `${esc(a.companyName)} · ${esc(a.fiscalYear || '?')}` : '';
+            html.push(`
+                <div class="anomaly-item">
+                    <span class="sev-badge ${esc(a.severity)}">${esc(a.severity)}</span>
+                    <span class="anomaly-desc">${esc(a.description)}</span>
+                    ${company ? `<span class="anomaly-meta">${company}</span>` : ''}
+                </div>`);
+        });
+        html.push('</div>');
+    }
+
+    html.push('</div>');
+
+    content.innerHTML = html.join('');
+}
+
+// ============================================
 // Section 8: Chat
 // ============================================
 async function sendQuery() {
@@ -632,6 +810,24 @@ function renderMarkdown(text) {
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
     html = html.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
+    // Markdown tables — detect contiguous | lines and convert to <table>
+    html = html.replace(/((?:\|[^\n]+\|\n?)+)/gm, match => {
+        const rows = match.trim().split('\n').map(r => r.trim()).filter(Boolean);
+        if (rows.length < 2) return match;
+        const isSepRow = r => /^\|[\s|:\-]+\|$/.test(r);
+        const headerCells = rows[0].split('|').slice(1, -1).map(c => c.trim());
+        const dataRows = rows.slice(1).filter(r => !isSepRow(r));
+        if (dataRows.length === 0) return match;
+        let t = '<div class="md-table-wrapper"><table class="md-table"><thead><tr>';
+        t += headerCells.map(h => `<th>${h}</th>`).join('');
+        t += '</tr></thead><tbody>';
+        dataRows.forEach(row => {
+            const cells = row.split('|').slice(1, -1).map(c => c.trim());
+            t += '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+        });
+        t += '</tbody></table></div>';
+        return t;
+    });
     html = html.replace(/^(?:[*\-] .+\n?)+/gm, m => '<ul class="md-list">' + m.trim().split('\n').map(l => '<li>' + l.replace(/^[*\-] /, '') + '</li>').join('') + '</ul>');
     html = html.replace(/^(?:\d+\. .+\n?)+/gm, m => '<ol class="md-list">' + m.trim().split('\n').map(l => '<li>' + l.replace(/^\d+\. /, '') + '</li>').join('') + '</ol>');
     html = html.replace(/\n\n+/g, '</p><p class="md-p">');
@@ -641,6 +837,9 @@ function renderMarkdown(text) {
     html = html.replace(/<p class="md-p">(<[huo])/g, '$1');
     html = html.replace(/(<\/[huo]l>|<\/h[234]>)<\/p>/g, '$1');
     html = html.replace(/<p class="md-p">(<br>)+/g, '<p class="md-p">');
+    // Unwrap tables from <p> tags
+    html = html.replace(/<p class="md-p">(<div class="md-table-wrapper">)/g, '$1');
+    html = html.replace(/(<\/table><\/div>)<\/p>/g, '$1');
     return html;
 }
 

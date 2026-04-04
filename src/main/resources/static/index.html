@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css?v=9">
+    <link rel="stylesheet" href="/css/style.css?v=11">
 </head>
 <body>
     <div class="app">
@@ -85,6 +85,10 @@
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                         Chat
                     </button>
+                    <button class="tab" data-tab="health" onclick="switchTab('health')">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        Health
+                    </button>
                 </nav>
 
                 <!-- Dashboard -->
@@ -120,9 +124,19 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Health -->
+                <div id="tab-health" class="tab-content">
+                    <div id="health-content" class="tab-empty">
+                        <span class="tab-empty-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        </span>
+                        Select a knowledge base to view health metrics
+                    </div>
+                </div>
             </div>
         </main>
     </div>
-    <script src="/js/app.js?v=9"></script>
+    <script src="/js/app.js?v=11"></script>
 </body>
 </html>

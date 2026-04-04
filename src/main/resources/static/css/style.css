@@ -561,6 +561,53 @@ body::before {
 
 .btn-ghost:disabled { opacity: 0.3; cursor: not-allowed; }
 
+/* Secondary action button — visible but not dominant */
+.btn-action {
+    font-size: 12px; font-weight: 500;
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: all 0.18s;
+    white-space: nowrap;
+}
+
+.btn-action:hover {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text);
+    transform: translateY(-1px);
+}
+
+.btn-action:active { transform: translateY(0); }
+.btn-action:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+/* Export button — green accent, primary value action */
+.btn-export {
+    font-size: 12px; font-weight: 600;
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--green);
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: all 0.18s;
+    white-space: nowrap;
+}
+
+.btn-export:hover {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.55);
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.18);
+    transform: translateY(-1px);
+}
+
+.btn-export:active { transform: translateY(0); }
+
 /* Financial grid */
 .fin-grid {
     display: grid;
@@ -917,3 +964,274 @@ body::before {
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.12); }
 
 ::selection { background: var(--accent-soft); color: var(--text); }
+
+/* ============================================
+   HEALTH TAB — Metric Cards
+   ============================================ */
+.health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: var(--s4);
+    padding: var(--s8) var(--s8) var(--s5);
+}
+
+.health-metric-card {
+    background: var(--surface-glass);
+    border: 1px solid var(--surface-glass-border);
+    border-radius: var(--r-lg);
+    padding: var(--s5) var(--s6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    transition: border-color 0.2s;
+}
+
+.health-metric-card:hover { border-color: rgba(255, 255, 255, 0.1); }
+
+.health-metric-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-ghost);
+    font-weight: 600;
+}
+
+.health-metric-score {
+    font-family: var(--mono);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--text);
+}
+
+.health-metric-score.score-high { color: var(--green); }
+.health-metric-score.score-mid  { color: var(--amber); }
+.health-metric-score.score-low  { color: var(--red); }
+
+.health-metric-sub {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+/* ============================================
+   HEALTH TAB — Sections & Coverage
+   ============================================ */
+.health-section {
+    padding: 0 var(--s8) var(--s6);
+}
+
+.health-section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-ghost);
+    font-weight: 600;
+    margin-bottom: var(--s4);
+    padding-bottom: var(--s3);
+    border-bottom: 1px solid var(--surface-glass-border);
+}
+
+.coverage-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+}
+
+.coverage-row {
+    display: flex;
+    align-items: center;
+    gap: var(--s4);
+}
+
+.coverage-field {
+    font-size: 12px;
+    color: var(--text-secondary);
+    width: 160px;
+    flex-shrink: 0;
+}
+
+.coverage-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--surface-raised);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.coverage-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease;
+}
+
+.coverage-fill.high { background: var(--green); }
+.coverage-fill.mid  { background: var(--amber); }
+.coverage-fill.low  { background: var(--red); }
+
+.coverage-pct {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    width: 40px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+/* ============================================
+   HEALTH TAB — Anomalies
+   ============================================ */
+.anomaly-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.anomaly-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s3);
+    padding: var(--s3) var(--s4);
+    background: var(--surface-glass);
+    border: 1px solid var(--surface-glass-border);
+    border-radius: var(--r-sm);
+    font-size: 12px;
+    transition: background 0.15s;
+}
+
+.anomaly-item:hover { background: var(--surface-hover); }
+
+.sev-badge.ERROR  { background: var(--red-soft);   color: var(--red);   }
+.sev-badge.WARNING { background: var(--amber-soft); color: var(--amber); }
+
+.anomaly-desc {
+    flex: 1;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.anomaly-meta {
+    font-size: 10px;
+    color: var(--text-ghost);
+    white-space: nowrap;
+    padding-top: 2px;
+}
+
+.anomaly-empty {
+    text-align: center;
+    padding: var(--s6);
+    color: var(--green);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s2);
+}
+
+/* ============================================
+   HEALTH TAB — Summary Cards (B2 Compilation)
+   ============================================ */
+.summary-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+}
+
+.summary-card {
+    background: var(--surface-glass);
+    border: 1px solid var(--surface-glass-border);
+    border-radius: var(--r-md);
+    padding: var(--s4) var(--s5);
+    backdrop-filter: blur(8px);
+    transition: border-color 0.2s;
+}
+
+.summary-card:hover { border-color: rgba(255, 255, 255, 0.1); }
+
+.summary-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    margin-bottom: var(--s3);
+}
+
+.summary-type-badge {
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+}
+
+.summary-section-name {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.summary-meta-text {
+    font-size: 10px;
+    color: var(--text-ghost);
+    flex-shrink: 0;
+}
+
+.summary-content {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+}
+
+/* ============================================
+   MARKDOWN TABLE (chat trend responses)
+   ============================================ */
+.md-table-wrapper {
+    overflow-x: auto;
+    margin: var(--s3) 0;
+    border-radius: var(--r-sm);
+}
+
+.md-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.md-table th {
+    padding: 7px var(--s4);
+    text-align: right;
+    border-bottom: 1px solid var(--accent-border);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--surface-raised);
+    white-space: nowrap;
+}
+
+.md-table th:first-child { text-align: left; }
+
+.md-table td {
+    padding: 7px var(--s4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
+.md-table td:first-child {
+    text-align: left;
+    font-family: var(--sans);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.md-table tr:hover td { background: var(--surface-hover); }
