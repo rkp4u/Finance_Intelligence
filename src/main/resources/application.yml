@@ -80,6 +80,11 @@ docling:
   timeout-seconds: 60
   max-pages-per-request: 10
 
+knowledge-compilation:
+  enabled: true
+  max-chunks-per-section: 10
+  max-summary-chars: 8000
+
 ---
 app:
   model-name: qwen3:14b

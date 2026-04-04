@@ -1,0 +1,66 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-create-entity-relationship
+      author: rkp
+      changes:
+        - createTable:
+            tableName: entity_relationship
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: source_company_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_entity_relationship_source
+                    references: company(id)
+                    deleteCascade: true
+              - column:
+                  name: target_company_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_entity_relationship_target
+                    references: company(id)
+                    deleteCascade: true
+              - column:
+                  name: relationship_type
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: evidence_document_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_entity_relationship_evidence_doc
+                    references: document_record(id)
+              - column:
+                  name: evidence_text
+                  type: text
+              - column:
+                  name: confidence
+                  type: double
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: entity_relationship
+            indexName: idx_entity_relationship_source
+            columns:
+              - column:
+                  name: source_company_id
+        - createIndex:
+            tableName: entity_relationship
+            indexName: idx_entity_relationship_target
+            columns:
+              - column:
+                  name: target_company_id

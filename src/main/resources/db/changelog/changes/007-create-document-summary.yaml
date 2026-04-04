@@ -1,0 +1,80 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-create-document-summary
+      author: rkp
+      changes:
+        - createTable:
+            tableName: document_summary
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: document_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_document_summary_document
+                    references: document_record(id)
+                    deleteCascade: true
+              - column:
+                  name: knowledge_base_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_document_summary_knowledge_base
+                    references: knowledge_base(id)
+                    deleteCascade: true
+              - column:
+                  name: summary_type
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: content
+                  type: text
+                  constraints:
+                    nullable: false
+              - column:
+                  name: key_entities
+                  type: jsonb
+                  remarks: "JSON: {companies:[], people:[], products:[], topics:[]}"
+              - column:
+                  name: section_source
+                  type: varchar(100)
+                  remarks: "e.g. Item 1, Item 7, Item 8"
+              - column:
+                  name: word_count
+                  type: integer
+              - column:
+                  name: model_used
+                  type: varchar(100)
+              - column:
+                  name: compilation_time_ms
+                  type: bigint
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: document_summary
+            columnNames: document_id, summary_type
+            constraintName: uq_document_summary_doc_type
+        - createIndex:
+            tableName: document_summary
+            indexName: idx_document_summary_knowledge_base_id
+            columns:
+              - column:
+                  name: knowledge_base_id
+        - createIndex:
+            tableName: document_summary
+            indexName: idx_document_summary_document_id
+            columns:
+              - column:
+                  name: document_id

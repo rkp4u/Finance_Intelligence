@@ -34,6 +34,7 @@ public class DocumentIngestionService {
     private final VectorStore vectorStore;
     private final DocumentRecordRepository documentRecordRepository;
     private final FinancialExtractionService financialExtractionService;
+    private final KnowledgeCompilationService knowledgeCompilationService;
 
     /**
      * Create a document record and start async processing.
@@ -124,6 +125,14 @@ public class DocumentIngestionService {
             } catch (Exception extractionEx) {
                 log.warn("Financial extraction failed for document {}, RAG pipeline unaffected",
                         documentRecordId, extractionEx);
+            }
+
+            // Trigger knowledge compilation (non-blocking — failure doesn't affect RAG pipeline)
+            try {
+                knowledgeCompilationService.compile(chunks, documentRecordId, knowledgeBaseId);
+            } catch (Exception compilationEx) {
+                log.warn("Knowledge compilation failed for document {}, RAG pipeline unaffected",
+                        documentRecordId, compilationEx);
             }
 
         } catch (Exception e) {

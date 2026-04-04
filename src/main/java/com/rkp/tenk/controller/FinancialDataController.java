@@ -13,6 +13,7 @@ import com.rkp.tenk.model.enums.DocumentStatus;
 import com.rkp.tenk.repository.DocumentRecordRepository;
 import com.rkp.tenk.repository.FinancialDataRepository;
 import com.rkp.tenk.service.FinancialExtractionService;
+import com.rkp.tenk.service.FinancialDataExportService;
 import com.rkp.tenk.service.FinancialValidationService;
 import com.rkp.tenk.service.FinancialValidationService.ValidationResult;
 import com.rkp.tenk.service.KnowledgeBaseService;
@@ -24,6 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,6 +44,7 @@ public class FinancialDataController {
     private final FinancialDataRepository financialDataRepository;
     private final FinancialValidationService validationService;
     private final FinancialExtractionService financialExtractionService;
+    private final FinancialDataExportService exportService;
     private final KnowledgeBaseService knowledgeBaseService;
     private final DocumentRecordRepository documentRecordRepository;
     private final PdfProcessingService pdfProcessingService;
@@ -150,6 +154,17 @@ public class FinancialDataController {
                 .map(this::toResponse)
                 .toList();
         return ResponseEntity.ok(results);
+    }
+
+    @GetMapping("/financial-data/export.csv")
+    @Operation(summary = "Export all financial data as CSV")
+    public ResponseEntity<byte[]> exportCsv(@PathVariable UUID kbId) {
+        knowledgeBaseService.findOrThrow(kbId);
+        String csv = exportService.exportKnowledgeBase(kbId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.setContentDispositionFormData("attachment", "financial-data-" + kbId + ".csv");
+        return ResponseEntity.ok().headers(headers).body(csv.getBytes());
     }
 
     private FinancialDataResponse toResponse(FinancialData data) {

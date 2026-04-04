@@ -13,3 +13,7 @@ databaseChangeLog:
       file: db/changelog/changes/005-create-company-table.yaml
   - include:
       file: db/changelog/changes/006-add-company-id-and-period-type.yaml
+  - include:
+      file: db/changelog/changes/007-create-document-summary.yaml
+  - include:
+      file: db/changelog/changes/008-create-entity-relationship.yaml
