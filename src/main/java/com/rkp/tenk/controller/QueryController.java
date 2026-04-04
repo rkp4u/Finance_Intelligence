@@ -1,5 +1,6 @@
 package com.rkp.tenk.controller;
 
+import com.rkp.tenk.config.AppProperties;
 import com.rkp.tenk.model.dto.OrchestratorResult;
 import com.rkp.tenk.model.dto.QueryRequest;
 import com.rkp.tenk.model.dto.QueryResponse;
@@ -16,7 +17,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,13 +31,11 @@ import java.util.UUID;
 @Tag(name = "Query", description = "RAG query endpoints for asking questions against knowledge bases")
 public class QueryController {
 
+    private final AppProperties appProperties;
     private final KnowledgeBaseService knowledgeBaseService;
     private final AgenticRagOrchestrator orchestrator;
     private final QueryClassifier queryClassifier;
     private final StructuredQueryService structuredQueryService;
-
-    @Value("${app.model-name:unknown}")
-    private String modelName;
 
     @PostMapping
     @Operation(summary = "Query a knowledge base with a natural language question")
@@ -88,7 +86,7 @@ public class QueryController {
                 result.sourceDocuments().size(),
                 result.retrievalTimeMs(),
                 result.generationTimeMs(),
-                modelName,
+                appProperties.modelName(),
                 "RAG",
                 agenticMetadata
         );

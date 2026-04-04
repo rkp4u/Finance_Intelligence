@@ -1,5 +1,6 @@
 package com.rkp.tenk.service;
 
+import com.rkp.tenk.config.AppProperties;
 import com.rkp.tenk.config.CompilationProperties;
 import com.rkp.tenk.model.entity.DocumentRecord;
 import com.rkp.tenk.model.entity.DocumentSummary;
@@ -12,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -49,13 +49,11 @@ public class KnowledgeCompilationService {
             """;
 
     private final CompilationProperties compilationProperties;
+    private final AppProperties appProperties;
     private final ChatClient chatClient;
     private final VectorStore vectorStore;
     private final DocumentSummaryRepository summaryRepository;
     private final DocumentRecordRepository documentRecordRepository;
-
-    @Value("${app.model-name:unknown}")
-    private String modelName;
 
     /**
      * Compile section summaries for a document from its chunks.
@@ -115,7 +113,9 @@ public class KnowledgeCompilationService {
             }
 
             try {
+                long sectionStart = System.currentTimeMillis();
                 String summaryText = synthesizeSection(sectionName, sectionChunks);
+                long sectionMs = System.currentTimeMillis() - sectionStart;
                 if (summaryText == null || summaryText.isBlank()) continue;
 
                 DocumentSummary summary = new DocumentSummary();
@@ -127,7 +127,8 @@ public class KnowledgeCompilationService {
                 summary.setContent(summaryText);
                 summary.setSectionSource(sectionName);
                 summary.setWordCount(summaryText.split("\\s+").length);
-                summary.setModelUsed(modelName);
+                summary.setModelUsed(appProperties.modelName());
+                summary.setCompilationTimeMs(sectionMs);
                 summaryRepository.save(summary);
 
                 // Also push summary into vector store for RAG retrieval
@@ -182,10 +183,12 @@ public class KnowledgeCompilationService {
     private SummaryType classifySection(String sectionName) {
         if (sectionName == null) return SummaryType.GENERAL;
         String lower = sectionName.toLowerCase();
-        if (lower.contains("item 1a") || lower.contains("risk")) return SummaryType.RISK_PROFILE;
+        // Order matters: check more specific patterns before broader ones
+        if (lower.contains("item 1a") || lower.contains("risk factor")) return SummaryType.RISK_PROFILE;
         if (lower.contains("item 7") || lower.contains("management") || lower.contains("md&a")) return SummaryType.MANAGEMENT_DISCUSSION;
         if (lower.contains("item 8") || lower.contains("financial statement")) return SummaryType.FINANCIAL_HIGHLIGHTS;
-        if (lower.contains("item 1") || lower.contains("business")) return SummaryType.BUSINESS_OVERVIEW;
+        // "item 1" check last — must NOT match "item 1a" which was already handled above
+        if (lower.matches(".*\\bitem\\s*1\\b(?!\\d|[a-z]).*") || lower.contains("business overview")) return SummaryType.BUSINESS_OVERVIEW;
         return SummaryType.GENERAL;
     }
 }

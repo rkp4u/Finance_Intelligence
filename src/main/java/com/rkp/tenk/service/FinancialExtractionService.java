@@ -2,6 +2,7 @@ package com.rkp.tenk.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rkp.tenk.config.AppProperties;
 import com.rkp.tenk.model.dto.FinancialStatementPages;
 import com.rkp.tenk.model.dto.LlmExtractionSchema;
 import com.rkp.tenk.model.dto.ValidationCheckResult;
@@ -134,6 +135,7 @@ public class FinancialExtractionService {
             Return the JSON extraction only.
             """;
 
+    private final AppProperties appProperties;
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
     private final LlmOutputUtil llmOutputUtil;
@@ -143,9 +145,6 @@ public class FinancialExtractionService {
     private final CompanyResolutionService companyResolutionService;
     private final FinancialDataRepository financialDataRepository;
     private final DocumentRecordRepository documentRecordRepository;
-
-    @Value("${app.model-name:unknown}")
-    private String modelName;
 
     @Value("${financial-extraction.enabled:true}")
     private boolean extractionEnabled;
@@ -239,7 +238,7 @@ public class FinancialExtractionService {
 
             // Store raw response for debugging
             financialData.setRawLlmResponse(rawResponse);
-            financialData.setExtractionModel(modelName);
+            financialData.setExtractionModel(appProperties.modelName());
 
             // Step 4: Parse LLM response
             String stripped = llmOutputUtil.stripThinkingBlock(rawResponse);

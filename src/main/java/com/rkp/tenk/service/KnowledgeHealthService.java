@@ -11,6 +11,7 @@ import com.rkp.tenk.repository.DocumentRecordRepository;
 import com.rkp.tenk.repository.DocumentSummaryRepository;
 import com.rkp.tenk.repository.FinancialDataRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -27,6 +28,7 @@ import java.util.function.Function;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class KnowledgeHealthService {
 
     private final DocumentRecordRepository documentRecordRepository;
@@ -35,7 +37,7 @@ public class KnowledgeHealthService {
     private final CompanyRepository companyRepository;
 
     public KnowledgeHealthReport generateReport(UUID kbId) {
-        int totalDocs = documentRecordRepository.findByKnowledgeBaseId(kbId).size();
+        int totalDocs = documentRecordRepository.countByKnowledgeBaseId(kbId);
         List<FinancialData> allFd = financialDataRepository.findByKnowledgeBaseId(kbId);
         List<FinancialData> completed = allFd.stream()
                 .filter(fd -> fd.getExtractionStatus() == ExtractionStatus.COMPLETED)
@@ -61,8 +63,9 @@ public class KnowledgeHealthService {
                 .average().orElse(0) * 100;
 
         int companyCount = (int) completed.stream()
-                .filter(fd -> fd.getCompany() != null)
-                .map(fd -> fd.getCompany().getId())
+                .map(FinancialData::getCompanyName)
+                .filter(name -> name != null && !name.isBlank())
+                .map(String::toLowerCase)
                 .distinct().count();
 
         int summaryCount = summaryRepository.countByKnowledgeBaseId(kbId);

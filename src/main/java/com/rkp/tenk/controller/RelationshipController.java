@@ -79,8 +79,18 @@ public class RelationshipController {
             @PathVariable UUID companyId,
             @PathVariable UUID relationshipId) {
 
+        companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Company", companyId));
         EntityRelationship rel = relationshipRepository.findById(relationshipId)
                 .orElseThrow(() -> new ResourceNotFoundException("Relationship", relationshipId));
+
+        // Verify the relationship actually belongs to this company
+        boolean belongsToCompany = rel.getSourceCompany().getId().equals(companyId)
+                || rel.getTargetCompany().getId().equals(companyId);
+        if (!belongsToCompany) {
+            return ResponseEntity.notFound().build();
+        }
+
         relationshipRepository.delete(rel);
         return ResponseEntity.noContent().build();
     }

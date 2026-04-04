@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Answers financial data queries directly from the database — no vector search, no LLM.
@@ -198,8 +199,19 @@ public class StructuredQueryService {
         FinancialData representative = findBestMatch(allData, question);
         String companyName = representative.getCompanyName();
 
+        // Deduplicate by fiscal year — keep the row with the highest confidence per year
         List<FinancialData> companyData = allData.stream()
                 .filter(fd -> companyName != null && companyName.equalsIgnoreCase(fd.getCompanyName()))
+                .collect(Collectors.toMap(
+                        fd -> fd.getFiscalYear() != null ? fd.getFiscalYear() : "",
+                        fd -> fd,
+                        (a, b) -> {
+                            double ca = a.getExtractionConfidence() != null ? a.getExtractionConfidence() : 0;
+                            double cb = b.getExtractionConfidence() != null ? b.getExtractionConfidence() : 0;
+                            return ca >= cb ? a : b;
+                        }
+                ))
+                .values().stream()
                 .sorted(Comparator.comparing(fd -> fd.getFiscalYear() != null ? fd.getFiscalYear() : ""))
                 .toList();
 

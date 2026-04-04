@@ -67,9 +67,13 @@ public class FinancialDataExportService {
         ) + "\n";
     }
 
-    /** Quote a string value for CSV, escaping embedded quotes. */
+    /** Quote a string value for CSV, escaping embedded quotes and formula injection. */
     private String q(String value) {
         if (value == null) return "";
+        // Prevent CSV formula injection: prefix with single-quote if starts with =, +, -, @
+        if (!value.isEmpty() && "=+-@".indexOf(value.charAt(0)) >= 0) {
+            value = "'" + value;
+        }
         if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }

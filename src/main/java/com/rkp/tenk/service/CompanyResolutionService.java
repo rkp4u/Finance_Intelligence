@@ -6,6 +6,7 @@ import com.rkp.tenk.repository.CompanyRepository;
 import com.rkp.tenk.repository.FinancialDataRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,12 +40,18 @@ public class CompanyResolutionService {
 
         return companyRepository.findByCanonicalName(canonical)
                 .orElseGet(() -> {
-                    Company c = new Company();
-                    c.setName(name.trim());
-                    c.setCanonicalName(canonical);
-                    Company saved = companyRepository.save(c);
-                    log.info("Created new Company: name='{}', canonical='{}'", saved.getName(), canonical);
-                    return saved;
+                    try {
+                        Company c = new Company();
+                        c.setName(name.trim());
+                        c.setCanonicalName(canonical);
+                        Company saved = companyRepository.saveAndFlush(c);
+                        log.info("Created new Company: name='{}', canonical='{}'", saved.getName(), canonical);
+                        return saved;
+                    } catch (DataIntegrityViolationException e) {
+                        // Concurrent insert won the race — fetch the winner's row
+                        log.debug("Concurrent company creation for '{}', fetching existing row", canonical);
+                        return companyRepository.findByCanonicalName(canonical).orElseThrow();
+                    }
                 });
     }
 

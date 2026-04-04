@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface DocumentRecordRepository extends JpaRepository<DocumentRecord, UUID> {
 
     List<DocumentRecord> findByKnowledgeBaseId(UUID knowledgeBaseId);
+
+    int countByKnowledgeBaseId(UUID knowledgeBaseId);
 }
