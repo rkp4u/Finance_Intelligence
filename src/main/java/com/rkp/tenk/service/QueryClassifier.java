@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class QueryClassifier {
 
-    public enum QueryType { FINANCIAL_DATA, COMPARISON, NARRATIVE }
+    public enum QueryType { FINANCIAL_DATA, COMPARISON, TREND, NARRATIVE }
 
     public record ClassificationResult(
             QueryType type,
@@ -98,6 +98,12 @@ public class QueryClassifier {
             "(?i)(compare|versus|vs\\.?|difference between|higher|lower|bigger|smaller|more than|less than)"
     );
 
+    private static final Pattern TREND_PATTERN = Pattern.compile(
+            "(?i)(trend|over the years|year over year|yoy|historical|history|" +
+            "over time|multiple years|last \\d+ years|growth over|annual growth|" +
+            "cagr|compound annual)"
+    );
+
     /**
      * Classify a user question into FINANCIAL_DATA, COMPARISON, or NARRATIVE.
      */
@@ -132,6 +138,9 @@ public class QueryClassifier {
         // Check for comparison patterns
         boolean isComparison = COMPARISON_PATTERN.matcher(normalized).find();
 
+        // Check for trend patterns
+        boolean isTrend = TREND_PATTERN.matcher(normalized).find();
+
         // Check for narrative indicators
         boolean hasNarrativeKeyword = NARRATIVE_KEYWORDS.stream().anyMatch(normalized::contains);
 
@@ -155,7 +164,14 @@ public class QueryClassifier {
             detectedFields = List.of("ALL");
         }
 
-        QueryType type = isComparison ? QueryType.COMPARISON : QueryType.FINANCIAL_DATA;
+        QueryType type;
+        if (isTrend) {
+            type = QueryType.TREND;
+        } else if (isComparison) {
+            type = QueryType.COMPARISON;
+        } else {
+            type = QueryType.FINANCIAL_DATA;
+        }
         log.debug("Query classified as {} with fields {}: {}", type, detectedFields, truncate(question));
         return new ClassificationResult(type, detectedFields, List.of());
     }

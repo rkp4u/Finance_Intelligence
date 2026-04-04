@@ -1,0 +1,38 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-drop-financial-data-document-unique
+      author: rkp
+      changes:
+        - sql:
+            sql: ALTER TABLE financial_data DROP CONSTRAINT IF EXISTS financial_data_document_id_key;
+
+  - changeSet:
+      id: 006-add-company-id-and-period-type
+      author: rkp
+      changes:
+        - addColumn:
+            tableName: financial_data
+            columns:
+              - column:
+                  name: company_id
+                  type: uuid
+                  remarks: "FK to company table — nullable for backward compatibility with existing rows"
+              - column:
+                  name: period_type
+                  type: varchar(10)
+                  remarks: "FY, Q1, Q2, Q3, Q4, H1, H2 — null means annual filing (FY assumed)"
+        - addForeignKeyConstraint:
+            baseTableName: financial_data
+            baseColumnNames: company_id
+            referencedTableName: company
+            referencedColumnNames: id
+            constraintName: fk_financial_data_company
+            onDelete: SET NULL
+        - createIndex:
+            tableName: financial_data
+            indexName: idx_financial_data_company_fiscal_year
+            columns:
+              - column:
+                  name: company_id
+              - column:
+                  name: fiscal_year

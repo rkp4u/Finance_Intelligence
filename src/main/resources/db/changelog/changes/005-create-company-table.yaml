@@ -1,0 +1,57 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-create-company-table
+      author: rkp
+      changes:
+        - createTable:
+            tableName: company
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: canonical_name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_company_canonical_name
+              - column:
+                  name: ticker
+                  type: varchar(20)
+              - column:
+                  name: cik
+                  type: varchar(20)
+              - column:
+                  name: jurisdiction
+                  type: varchar(100)
+              - column:
+                  name: sector
+                  type: varchar(100)
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: company
+            indexName: idx_company_canonical_name
+            columns:
+              - column:
+                  name: canonical_name

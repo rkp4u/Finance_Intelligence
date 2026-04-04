@@ -2,6 +2,7 @@ package com.rkp.tenk.model.entity;
 
 import com.rkp.tenk.model.enums.AccountingStandard;
 import com.rkp.tenk.model.enums.ExtractionStatus;
+import com.rkp.tenk.model.enums.PeriodType;
 import com.rkp.tenk.model.enums.ValidationStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -27,12 +28,20 @@ public class FinancialData {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "document_id", nullable = false, unique = true)
+    @JoinColumn(name = "document_id", nullable = false)
     private DocumentRecord documentRecord;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "knowledge_base_id", nullable = false)
     private KnowledgeBase knowledgeBase;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    private Company company;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "period_type")
+    private PeriodType periodType;
 
     // --- Company metadata ---
 

@@ -12,6 +12,8 @@ import java.util.UUID;
 public record FinancialDataResponse(
         UUID id,
         UUID documentId,
+        UUID companyId,
+        String periodType,
         // Company metadata
         String companyName,
         String fiscalYear,

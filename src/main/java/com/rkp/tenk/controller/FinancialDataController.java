@@ -166,6 +166,8 @@ public class FinancialDataController {
         return new FinancialDataResponse(
                 data.getId(),
                 data.getDocumentRecord().getId(),
+                data.getCompany() != null ? data.getCompany().getId() : null,
+                data.getPeriodType() != null ? data.getPeriodType().name() : null,
                 data.getCompanyName(),
                 data.getFiscalYear(),
                 data.getFiscalYearEndDate(),

@@ -51,12 +51,14 @@ public class StructuredQueryService {
         long queryTimeMs = System.currentTimeMillis() - start;
 
         String answer;
-        if (classification.type() == QueryType.COMPARISON) {
+        if (classification.type() == QueryType.TREND) {
+            answer = formatTrend(allData, question, classification.detectedFields());
+        } else if (classification.type() == QueryType.COMPARISON) {
             answer = formatComparison(allData, classification.detectedFields());
         } else if (allData.size() == 1) {
             answer = formatSingleCompany(allData.get(0), classification.detectedFields());
         } else {
-            // Multiple companies in KB but not a comparison query — pick the most relevant
+            // Multiple companies in KB but not a comparison/trend query — pick the most relevant
             FinancialData best = findBestMatch(allData, question);
             answer = formatSingleCompany(best, classification.detectedFields());
         }
@@ -184,6 +186,81 @@ public class StructuredQueryService {
         }
 
         sb.append("\n*Source: Extracted from annual filings. Structured data lookup — no LLM interpretation.*");
+        return sb.toString();
+    }
+
+    /**
+     * Format a multi-year trend table for a single company.
+     * Groups all available years for the best-matching company in the KB.
+     */
+    private String formatTrend(List<FinancialData> allData, String question, List<String> requestedFields) {
+        // Find all records for the best-matching company, ordered by fiscal year
+        FinancialData representative = findBestMatch(allData, question);
+        String companyName = representative.getCompanyName();
+
+        List<FinancialData> companyData = allData.stream()
+                .filter(fd -> companyName != null && companyName.equalsIgnoreCase(fd.getCompanyName()))
+                .sorted(Comparator.comparing(fd -> fd.getFiscalYear() != null ? fd.getFiscalYear() : ""))
+                .toList();
+
+        if (companyData.size() == 1) {
+            // Only one year available — fall back to single-company format with a note
+            return formatSingleCompany(companyData.get(0), requestedFields) +
+                    "\n\n*Only one fiscal year is available. Upload more annual filings to see trends.*";
+        }
+
+        // Determine which fields to show
+        boolean showAll = requestedFields.contains("ALL") || requestedFields.isEmpty();
+        List<FieldDef> fields = new ArrayList<>();
+        addFieldIfNeeded(fields, "Revenue", "revenue", showAll, requestedFields);
+        addFieldIfNeeded(fields, "Gross Profit", "grossProfit", showAll, requestedFields);
+        addFieldIfNeeded(fields, "Net Income", "netIncome", showAll, requestedFields);
+        addFieldIfNeeded(fields, "Total Assets", "totalAssets", showAll, requestedFields);
+        addFieldIfNeeded(fields, "Total Equity", "totalEquity", showAll, requestedFields);
+        addFieldIfNeeded(fields, "Cash & Equivalents", "cashAndEquivalents", showAll, requestedFields);
+        if (fields.isEmpty()) {
+            fields.add(new FieldDef("Revenue", "revenue"));
+            fields.add(new FieldDef("Net Income", "netIncome"));
+            fields.add(new FieldDef("Total Assets", "totalAssets"));
+        }
+
+        FinancialData first = companyData.get(0);
+        String sym = currencySymbol(first.getCurrencyCode());
+        String unit = first.getAmountsInUnit() != null ? first.getAmountsInUnit() : "";
+        StringBuilder sb = new StringBuilder(String.format("## %s — Multi-Year Trend (%s, %s)\n\n",
+                companyName, first.getCurrencyCode(), unit));
+
+        // Header row: Metric | FY2022 | FY2023 | FY2024
+        sb.append("| Metric |");
+        for (FinancialData fd : companyData) sb.append(String.format(" FY%s |", fd.getFiscalYear()));
+        sb.append("\n|---|");
+        for (int i = 0; i < companyData.size(); i++) sb.append("---|");
+        sb.append("\n");
+
+        for (FieldDef field : fields) {
+            sb.append(String.format("| %s |", field.label));
+            BigDecimal prev = null;
+            for (FinancialData fd : companyData) {
+                BigDecimal value = getFieldValue(fd, field.fieldName);
+                if (value != null) {
+                    String cell = sym + formatNumber(value);
+                    if (prev != null && prev.signum() != 0) {
+                        double pctChange = value.subtract(prev)
+                                .divide(prev.abs(), 4, RoundingMode.HALF_UP)
+                                .doubleValue() * 100;
+                        cell += String.format(" (%+.1f%%)", pctChange);
+                    }
+                    sb.append(String.format(" %s |", cell));
+                    prev = value;
+                } else {
+                    sb.append(" — |");
+                    prev = null;
+                }
+            }
+            sb.append("\n");
+        }
+
+        sb.append("\n*Source: Extracted from annual filings. YoY % changes shown in parentheses.*");
         return sb.toString();
     }
 

@@ -140,6 +140,7 @@ public class FinancialExtractionService {
     private final FinancialStatementDetector detector;
     private final FinancialValidationService validationService;
     private final DoclingTableService doclingTableService;
+    private final CompanyResolutionService companyResolutionService;
     private final FinancialDataRepository financialDataRepository;
     private final DocumentRecordRepository documentRecordRepository;
 
@@ -253,6 +254,15 @@ public class FinancialExtractionService {
 
             // Step 5: Map to entity
             mapToEntity(financialData, extracted, fsPages.detectedStandard());
+
+            // Step 5b: Resolve/create Company record
+            try {
+                var company = companyResolutionService.resolveOrCreate(extracted.companyName());
+                financialData.setCompany(company);
+            } catch (Exception e) {
+                log.warn("Company resolution failed for '{}', continuing without FK: {}",
+                        extracted.companyName(), e.getMessage());
+            }
 
             // Step 6: Validate
             ValidationResult validationResult = validationService.validate(financialData);

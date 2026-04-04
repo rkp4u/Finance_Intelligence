@@ -9,3 +9,7 @@ databaseChangeLog:
       file: db/changelog/changes/003-create-financial-data.yaml
   - include:
       file: db/changelog/changes/004-add-pdf-content-to-document-record.yaml
+  - include:
+      file: db/changelog/changes/005-create-company-table.yaml
+  - include:
+      file: db/changelog/changes/006-add-company-id-and-period-type.yaml

@@ -20,4 +20,10 @@ public interface FinancialDataRepository extends JpaRepository<FinancialData, UU
             UUID knowledgeBaseId, ExtractionStatus status);
 
     boolean existsByDocumentRecordId(UUID documentId);
+
+    List<FinancialData> findByCompanyIdOrderByFiscalYearDesc(UUID companyId);
+
+    List<FinancialData> findByCompanyIdAndFiscalYear(UUID companyId, String fiscalYear);
+
+    List<FinancialData> findByCompanyIsNull();
 }
